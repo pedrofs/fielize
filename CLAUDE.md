@@ -1,4 +1,4 @@
-# AGENTS.md — Painel Vizinho
+# AGENTS.md — Fielize
 
 > **Read this file first.** It is the entry point for any coding agent working on this project. After reading, follow the links in the "Where to find what" section to load deeper context as needed for the current task.
 
@@ -6,7 +6,7 @@
 
 ## Project at a glance
 
-**Painel Vizinho** is a multi-tenant campaign-management SaaS for merchant associations (Brazilian "CDLs" — Câmaras de Dirigentes Lojistas). Each CDL operates a white-labeled instance that lets it run loyalty and reward campaigns across its associate merchants.
+**Fielize** is a multi-tenant campaign-management SaaS for merchant associations (Brazilian "CDLs" — Câmaras de Dirigentes Lojistas). Each CDL operates a white-labeled instance that lets it run loyalty and reward campaigns across its associate merchants.
 
 **Launch customer:** CDL Jaguarão / RS, a small border city merchant association that runs a tourist passport campaign (Pasaporte de Compras) for Uruguayan visitors. Their existing manual operation cost R$3,000 with no measurable return — this product replaces it.
 
@@ -155,4 +155,6 @@ When reviewing a PR, check:
 
 ## Naming note
 
-The product placeholder name is **Painel Vizinho** — chosen for project setup. Final naming may change. Avoid hardcoding the brand name in copy; use a config / env var.
+The product is named **Fielize** (verb form of *fidelizar*). `fielize.com` is registered. The repo directory (`painel_vizin`) keeps the old codename — that's cosmetic, don't rename.
+
+Avoid hardcoding the brand name in copy or markup. The platform is white-labeled per CDL, so any consumer-facing surface that says "Fielize" must read from a config / env var (e.g. `NEXT_PUBLIC_PLATFORM_NAME`) — the CDL admin shell shows "Fielize", but the consumer-facing scan flow shows the CDL's own brand.

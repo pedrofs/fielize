@@ -1,4 +1,4 @@
-# Decisions Log — Painel Vizinho
+# Decisions Log — Fielize
 
 > A chronological log of major architectural decisions with the reasoning behind each. When you find yourself questioning a constraint, look here first — it has probably been re-litigated already.
 
@@ -177,15 +177,17 @@ Logic at runtime decides whether redemption requires merchant validation via `M-
 
 ## ADR-016: Subdomain-per-CDL, with optional CNAME
 
-**Decision:** each CDL gets `[slug].painelvizinho.com.br` by default. Premium tenants can configure their own domain via CNAME.
+**Decision:** each CDL gets `[slug].fielize.com` by default. Premium tenants can configure their own domain via CNAME.
 
-**Reasoning:** subdomain is the cleanest white-label signal — merchants and customers see "their CDL's" domain, not Painel Vizinho's. CNAME for premium gives the highest-budget CDLs full brand control. Vercel wildcard makes implementation trivial.
+**Reasoning:** subdomain is the cleanest white-label signal — merchants and customers see "their CDL's" domain, not the platform's. CNAME for premium gives the highest-budget CDLs full brand control. Vercel wildcard makes implementation trivial.
 
 **Cost:** Vercel Pro plan ($20/mo) required for wildcard. Acceptable.
 
 ---
 
 ## ADR-017: Final product naming deferred
+
+> **Superseded 2026-04-28:** Resolved — name is **Fielize** (`fielize.com` registered). Historical reasoning preserved below as record.
 
 **Decision:** ship v0 with placeholder name "Painel Vizinho." Final naming chosen during or after pilot.
 

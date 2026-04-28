@@ -1,4 +1,4 @@
-# UX Design — Painel Vizinho v0
+# UX Design — Fielize v0
 
 > Visual reference: see `wireframes.html` (the source of truth — every decision below is reflected there). This document captures the *reasoning* behind each design choice and details flows in textual form for agents that consume markdown.
 
@@ -82,7 +82,7 @@ The platform follows the "Stripe model": consumer identity lives at the platform
 ### Journey 1: First-time identification
 
 1. Customer scans the QR poster at Calzados Ricardo's counter.
-2. URL is `cdljaguarao.painelvizinho.com.br/s/[storeId]`. Server resolves the store, lists the campaigns it participates in, validates browser geolocation (~80m radius), and creates an anonymous session token.
+2. URL is `cdljaguarao.fielize.com/s/[storeId]`. Server resolves the store, lists the campaigns it participates in, validates browser geolocation (~80m radius), and creates an anonymous session token.
 3. **C-00 Store Landing** renders: store info + 3 campaign cards (Pasaporte de Compras, Cartão Fidelidade Ricardo, Sorteio Black Friday) + inline WhatsApp form + LGPD opt-in checkbox.
 4. Customer types phone, accepts LGPD, taps "Participate in 3 campaigns".
 5. Server sends `cdl_optin_confirmation` template via WhatsApp. Customer's view advances to **C-03 Awaiting WhatsApp** — amber warning with polling indicator.
@@ -142,10 +142,10 @@ The platform follows the "Stripe model": consumer identity lives at the platform
 | Primary color | yes | Color picker; applied via CSS variable `--cdl-primary` |
 | Accent color | yes | Color picker; applied via CSS variable `--cdl-accent` |
 | Typography | not in v0 | System fonts. v1 may allow custom. |
-| Domain | yes | Subdomain `[slug].painelvizinho.com.br` (default) or custom CNAME |
+| Domain | yes | Subdomain `[slug].fielize.com` (default) or custom CNAME |
 | WhatsApp template copy | yes (within Meta-approved structure) | Editor in `A-08` |
 | QR poster template | choice of 3 fixed designs | Logo applied automatically |
-| Footer attribution | locked | "Powered by Painel Vizinho" subtle but always present |
+| Footer attribution | locked | "Powered by Fielize" subtle but always present |
 
 ---
 
@@ -187,9 +187,9 @@ Stack:
 
 | Data type | Controller | Processor |
 |---|---|---|
-| Platform account (phone, locale, master opt-in) | Painel Vizinho | — |
-| Campaign engagement (stamps, entries, opt-ins) | CDL | Painel Vizinho |
-| WhatsApp messages | CDL | Painel Vizinho + Meta |
+| Platform account (phone, locale, master opt-in) | Fielize | — |
+| Campaign engagement (stamps, entries, opt-ins) | CDL | Fielize |
+| WhatsApp messages | CDL | Fielize + Meta |
 
 Privacy policy unifies platform-level controls and references the relevant CDL DPO for campaign-specific concerns.
 
@@ -237,16 +237,14 @@ For Cartão Fidelidade with physical prizes, **merchant validation via `M-06` is
 - POS integration
 - Predictive analytics
 - Languages beyond PT-BR / ES
-- Final product naming (placeholder = "Painel Vizinho")
 
 ---
 
 ## 13. Open questions / follow-ups
 
-1. Final product naming.
-2. Pricing model post-pilot: SaaS subscription per CDL? Revenue share? TBD.
-3. WhatsApp Business API costs: covered by platform during pilot; renegotiate post-pilot.
-4. Edge case: customer clicks magic link AFTER 30-minute expiry. UX for "expired, resend" — needs design pass.
-5. Edge case: customer at 6/6 in Passport scans another store. UX for "you're already done" vs. "+1 stamp anyway" — needs decision.
-6. Edge case: customer is the raffle winner but hasn't seen the WhatsApp yet. UX for "you won!" surfacing on next scan.
-7. Accessibility audit (WCAG AA) post-MVP.
+1. Pricing model post-pilot: SaaS subscription per CDL? Revenue share? TBD.
+2. WhatsApp Business API costs: covered by platform during pilot; renegotiate post-pilot.
+3. Edge case: customer clicks magic link AFTER 30-minute expiry. UX for "expired, resend" — needs design pass.
+4. Edge case: customer at 6/6 in Passport scans another store. UX for "you're already done" vs. "+1 stamp anyway" — needs decision.
+5. Edge case: customer is the raffle winner but hasn't seen the WhatsApp yet. UX for "you won!" surfacing on next scan.
+6. Accessibility audit (WCAG AA) post-MVP.

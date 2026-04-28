@@ -1,4 +1,4 @@
-# WhatsApp Templates — Painel Vizinho v0
+# WhatsApp Templates — Fielize v0
 
 > Templates registered with Meta for transactional messaging. Free-form messages are only allowed within the 24-hour customer-initiated window — outside of that, only approved templates fire.
 

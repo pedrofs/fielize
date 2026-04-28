@@ -1,4 +1,4 @@
-# Data Model & API — Painel Vizinho v0
+# Data Model & API — Fielize v0
 
 > Engineering blueprint. Pair with `ux-design.md` for the product side.
 
@@ -392,16 +392,16 @@ The seed is deterministic and verifiable: anyone can reproduce the draw given th
 
 ### DNS
 
-Two records on the platform's domain (e.g., `painelvizinho.com.br`):
+Two records on the platform's domain (e.g., `fielize.com`):
 
 ```
-A      painelvizinho.com.br        76.76.21.21
-CNAME  *.painelvizinho.com.br      cname.vercel-dns.com
+A      fielize.com        76.76.21.21
+CNAME  *.fielize.com      cname.vercel-dns.com
 ```
 
 ### Vercel
 
-Add both `painelvizinho.com.br` (apex) and `*.painelvizinho.com.br` (wildcard) as project domains. SSL via Let's Encrypt is automatic. Pro plan required for wildcard.
+Add both `fielize.com` (apex) and `*.fielize.com` (wildcard) as project domains. SSL via Let's Encrypt is automatic. Pro plan required for wildcard.
 
 ### Middleware
 
@@ -410,8 +410,8 @@ Add both `painelvizinho.com.br` (apex) and `*.painelvizinho.com.br` (wildcard) a
 import { NextResponse } from 'next/server';
 
 const ROOT_DOMAINS = new Set([
-  'painelvizinho.com.br',
-  'www.painelvizinho.com.br',
+  'fielize.com',
+  'www.fielize.com',
   'localhost:3000',
 ]);
 
@@ -419,7 +419,7 @@ export function middleware(req) {
   const hostname = req.headers.get('host') ?? '';
   if (ROOT_DOMAINS.has(hostname)) return NextResponse.next();
 
-  const subdomain = hostname.replace(/\.painelvizinho\.com\.br$/, '');
+  const subdomain = hostname.replace(/\.fielize\.com$/, '');
   const url = req.nextUrl.clone();
   url.pathname = `/_tenants/${subdomain}${url.pathname}`;
   return NextResponse.rewrite(url);

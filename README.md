@@ -1,4 +1,4 @@
-# Painel Vizinho
+# Fielize
 
 Multi-tenant campaign-management platform for Brazilian merchant associations (CDLs). Launch customer: CDL Jaguarão / RS.
 
