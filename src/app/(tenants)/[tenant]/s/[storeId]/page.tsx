@@ -6,6 +6,8 @@ import { getTenantBySlug } from "@/lib/tenant";
 import { cookies } from "next/headers";
 import { verifyConsumerSession, SESSION_COOKIE_NAME } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { handleIdentifiedScan } from "@/lib/scan-handler";
 import { IdentifyForm } from "./identify-form";
 
 type Props = {
@@ -27,7 +29,14 @@ export default async function StoreLanding({ params }: Props) {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = sessionCookie ? await verifyConsumerSession(sessionCookie) : null;
-  const identified = Boolean(session?.userId);
+
+  const scanResult = session?.userId
+    ? await handleIdentifiedScan({
+        associationId: tenant.id,
+        merchantId: merchant.id,
+        userId: session.userId,
+      })
+    : null;
 
   return (
     <main className="flex flex-1 flex-col items-center px-6 py-10">
@@ -47,13 +56,36 @@ export default async function StoreLanding({ params }: Props) {
           ) : null}
         </header>
 
-        {identified ? (
-          <div className="rounded-lg border border-dashed p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Você já está identificado. Quando houver campanhas ativas elas
-              aparecerão aqui.
-            </p>
-          </div>
+        {scanResult ? (
+          scanResult.campaigns.length === 0 ? (
+            <div className="rounded-lg border border-dashed p-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Você já está identificado. Sem campanhas ativas neste comerciante
+                no momento.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {scanResult.campaigns.map((c) => (
+                <Card key={c.campaignId}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>{c.name}</span>
+                      {c.completed ? (
+                        <Badge variant="default">completo</Badge>
+                      ) : null}
+                    </CardTitle>
+                    <CardDescription>{c.progressLabel}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    {c.completed
+                      ? "Você está concorrendo ao sorteio!"
+                      : "Continue acumulando em outros comerciantes participantes."}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )
         ) : (
           <IdentifyForm
             associationId={tenant.id}
