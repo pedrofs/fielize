@@ -23,12 +23,10 @@ export function proxy(request: NextRequest) {
   }
 
   const url = request.nextUrl.clone();
-  url.pathname = `/_tenants/${subdomain}${url.pathname}`;
+  url.pathname = `/${subdomain}${url.pathname}`;
   return NextResponse.rewrite(url);
 }
 
-export const proxyConfig = {
+export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
-
-export const runtime = "nodejs";
