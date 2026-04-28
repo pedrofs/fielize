@@ -31,4 +31,19 @@ test.describe("CDL Jaguarão admin", () => {
     ).toBeVisible();
     await expect(page.getByText(ADMIN_EMAIL)).toBeVisible();
   });
+
+  test("admin can navigate to merchant directory", async ({ page }) => {
+    await page.goto("/admin/login");
+    await page.getByLabel("E-mail").fill(ADMIN_EMAIL);
+    await page.getByLabel("Senha").fill(ADMIN_PASSWORD);
+    await page.getByRole("button", { name: /entrar/i }).click();
+    await page.waitForURL(/\/admin(?!\/login)/, { timeout: 10_000 });
+    await page.getByRole("link", { name: /ver diretório/i }).click();
+    await expect(
+      page.getByRole("heading", { name: "Comerciantes", level: 2 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /convidar comerciante/i }),
+    ).toBeVisible();
+  });
 });
