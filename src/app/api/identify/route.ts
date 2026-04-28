@@ -7,6 +7,7 @@ import { normalizeE164 } from "@/lib/phone";
 import { signMagicLink } from "@/lib/session";
 import { whatsapp } from "@/lib/whatsapp";
 import { env } from "@/lib/env";
+import { rateLimit } from "@/lib/rate-limit";
 
 const Schema = z.object({
   phone: z.string().min(5),
@@ -25,6 +26,17 @@ export async function POST(req: NextRequest) {
   const phoneE164 = normalizeE164(parsed.data.phone);
   if (!phoneE164)
     return NextResponse.json({ error: "invalid_phone" }, { status: 400 });
+
+  const rl = rateLimit(`identify:${phoneE164}:${parsed.data.associationId}`, {
+    max: 5,
+    windowSec: 60 * 10,
+  });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "rate_limited", resetAt: rl.resetAt },
+      { status: 429 },
+    );
+  }
 
   const [tenant] = await db
     .select()

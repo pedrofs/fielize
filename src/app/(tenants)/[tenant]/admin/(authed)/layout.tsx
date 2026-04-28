@@ -1,5 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { admins } from "@/lib/db/schema";
@@ -51,7 +52,7 @@ export default async function AdminLayout({ children, params }: Props) {
         className="border-b px-6 py-4"
         style={{ backgroundColor: "var(--cdl-primary)", color: "white" }}
       >
-        <div className="flex items-center justify-between">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between">
           <div>
             <p className="text-xs uppercase tracking-wide opacity-80">
               {tenant.name}
@@ -61,6 +62,25 @@ export default async function AdminLayout({ children, params }: Props) {
           <p className="text-sm opacity-80">{admin.email}</p>
         </div>
       </header>
+      <nav className="border-b bg-muted/40 px-6">
+        <div className="mx-auto flex w-full max-w-5xl gap-4 overflow-x-auto py-2 text-sm">
+          <Link href="/admin" className="hover:underline">
+            Início
+          </Link>
+          <Link href="/admin/merchants" className="hover:underline">
+            Comerciantes
+          </Link>
+          <Link href="/admin/campaigns" className="hover:underline">
+            Campanhas
+          </Link>
+          <Link href="/admin/overview" className="hover:underline">
+            Resumo
+          </Link>
+          <Link href="/admin/settings" className="hover:underline">
+            Configurações
+          </Link>
+        </div>
+      </nav>
       <div className="flex-1">{children}</div>
     </div>
   );
