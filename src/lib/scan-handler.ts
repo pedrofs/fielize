@@ -199,6 +199,38 @@ export async function handleIdentifiedScan(args: {
         completed,
         redeemableParticipationId: completed ? participation.id : undefined,
       });
+    } else if (campaign.templateId === "sorteio") {
+      const inserted = await db
+        .insert(events)
+        .values({
+          associationId,
+          campaignId: campaign.id,
+          merchantId,
+          userId,
+          participationId: participation.id,
+          type: "entry_recorded",
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      let state = (participation.state ?? {}) as { entries?: number };
+      if (inserted.length > 0) {
+        state = { entries: (state.entries ?? 0) + 1 };
+        await db
+          .update(participations)
+          .set({ state })
+          .where(eq(participations.id, participation.id));
+      }
+      const entries = state.entries ?? 0;
+      result.push({
+        campaignId: campaign.id,
+        templateId: campaign.templateId,
+        name: extractName(campaign.nameI18n),
+        rewardType: campaign.rewardType,
+        state,
+        progressLabel: `${entries} ${entries === 1 ? "entrada" : "entradas"}`,
+        completed: false,
+      });
     }
   }
 

@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireAssociationAdmin } from "@/lib/auth-helpers";
 import { CampaignActions } from "./actions";
+import { LiveDashboard } from "./dashboard";
 
 type Props = { params: Promise<{ tenant: string; id: string }> };
 
@@ -74,6 +75,32 @@ export default async function CampaignDetail({ params }: Props) {
           <Field label="Prêmio" value={String(config.prize ?? "—")} />
         </CardContent>
       </Card>
+
+      {campaign.status !== "draft" ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>A-04 · Painel ao vivo</CardTitle>
+            <CardDescription>Atualiza a cada 5 segundos</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <LiveDashboard campaignId={campaign.id} />
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {campaign.status === "ended" && config.winner_user_id ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sorteio realizado</CardTitle>
+            <CardDescription className="break-all font-mono text-xs">
+              seed: {String(config.draw_seed)}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+            Vencedor: <strong>{String(config.winner_user_id)}</strong>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
