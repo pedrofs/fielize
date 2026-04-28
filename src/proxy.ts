@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { updateSession } from "@/lib/supabase/proxy";
 
 const ROOT_DOMAINS = new Set([
   "fielize.com",
@@ -7,11 +8,12 @@ const ROOT_DOMAINS = new Set([
   "localhost",
 ]);
 
-export function proxy(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  const refreshed = await updateSession(request);
   const hostname = request.headers.get("host") ?? "";
 
   if (ROOT_DOMAINS.has(hostname)) {
-    return NextResponse.next();
+    return refreshed;
   }
 
   const subdomain = hostname
@@ -19,12 +21,12 @@ export function proxy(request: NextRequest) {
     .replace(/\.localhost(:\d+)?$/, "");
 
   if (!subdomain || subdomain === hostname) {
-    return NextResponse.next();
+    return refreshed;
   }
 
   const url = request.nextUrl.clone();
   url.pathname = `/${subdomain}${url.pathname}`;
-  return NextResponse.rewrite(url);
+  return NextResponse.rewrite(url, { headers: refreshed.headers });
 }
 
 export const config = {
