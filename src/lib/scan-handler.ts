@@ -159,6 +159,46 @@ export async function handleIdentifiedScan(args: {
         threshold,
         completed: progress.completed,
       });
+    } else if (campaign.templateId === "cartao_fidelidade") {
+      const config = (campaign.config ?? {}) as { threshold?: number };
+      const threshold = config.threshold ?? 10;
+
+      const inserted = await db
+        .insert(events)
+        .values({
+          associationId,
+          campaignId: campaign.id,
+          merchantId,
+          userId,
+          participationId: participation.id,
+          type: "visit_recorded",
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      let state = (participation.state ?? {}) as { visits?: number };
+      if (inserted.length > 0) {
+        const visits = (state.visits ?? 0) + 1;
+        state = { visits };
+        await db
+          .update(participations)
+          .set({ state })
+          .where(eq(participations.id, participation.id));
+      }
+
+      const visits = state.visits ?? 0;
+      const completed = visits >= threshold;
+      result.push({
+        campaignId: campaign.id,
+        templateId: campaign.templateId,
+        name: extractName(campaign.nameI18n),
+        rewardType: campaign.rewardType,
+        state,
+        progressLabel: `${visits}/${threshold} visitas`,
+        threshold,
+        completed,
+        redeemableParticipationId: completed ? participation.id : undefined,
+      });
     }
   }
 

@@ -37,20 +37,41 @@ export default async function MerchantDashboard({ params }: Props) {
           {merchant.name}
         </h1>
       </header>
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle>Visitas hoje</CardTitle>
-            <CardDescription>Slice 4 em diante</CardDescription>
+            <CardDescription>Cartão Fidelidade + sorteio</CardDescription>
           </CardHeader>
           <CardContent className="text-3xl font-semibold">0</CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Resgates pendentes</CardTitle>
-            <CardDescription>Cartão Fidelidade</CardDescription>
+            <CardTitle>Cartão Fidelidade</CardTitle>
+            <CardDescription>Configure seu cartão</CardDescription>
           </CardHeader>
-          <CardContent className="text-3xl font-semibold">0</CardContent>
+          <CardContent>
+            <Link
+              href="/m/cartao-fidelidade"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Configurar
+            </Link>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Validação de resgate</CardTitle>
+            <CardDescription>Para o caixa</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link
+              href={`/r/${merchant.id}`}
+              className={buttonVariants({ variant: "outline" })}
+            >
+              Abrir
+            </Link>
+          </CardContent>
         </Card>
         <Card>
           <CardHeader>
