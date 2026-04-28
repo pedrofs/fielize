@@ -16,12 +16,16 @@ export async function GET(req: NextRequest) {
 
   const session = await signConsumerSession(payload.userId);
   const store = await cookies();
+  const isProd = process.env.NODE_ENV === "production";
   store.set(SESSION_COOKIE_NAME, session, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: isProd,
     maxAge: SESSION_MAX_AGE,
     path: "/",
+    // Share cookie across subdomains + apex so /account works after
+    // identifying on a CDL subdomain.
+    domain: isProd ? `.${process.env.NEXT_PUBLIC_ROOT_DOMAIN}` : undefined,
   });
 
   const next = payload.storeId ? `/s/${payload.storeId}` : "/c/success";
