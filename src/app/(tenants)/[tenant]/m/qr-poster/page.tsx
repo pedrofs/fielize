@@ -41,7 +41,6 @@ export default async function QrPosterPage({ params }: Props) {
             download
             className={buttonVariants({})}
             style={{ backgroundColor: "var(--cdl-primary)" }}
-            // eslint-disable-next-line @next/next/no-html-link-for-pages
           >
             Baixar PDF
           </a>
