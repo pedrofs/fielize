@@ -8,12 +8,10 @@ node_modules/
 .pnp
 .pnp.js
 
-# Local env
+# Local env (anything except the example template)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 
 # Supabase
 .supabase/

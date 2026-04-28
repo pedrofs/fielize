@@ -1,0 +1,8 @@
+{
+  "common": {
+    "platformName": "Fielize",
+    "loading": "Loading…",
+    "error": "Something went wrong.",
+    "retry": "Try again"
+  }
+}
