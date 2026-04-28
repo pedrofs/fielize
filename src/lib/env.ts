@@ -3,7 +3,8 @@ import { z } from "zod";
 
 export const env = createEnv({
   server: {
-    DATABASE_URL: z.string().url(),
+    POSTGRES_URL: z.string().url(),
+    POSTGRES_URL_NON_POOLING: z.string().url(),
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
     JWT_SECRET: z.string().min(32),
     ZAPI_INSTANCE_ID: z.string().min(1).optional(),
