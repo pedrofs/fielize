@@ -6,6 +6,7 @@ import inertiaSvg from '/assets/inertia.svg'
 import reactSvg from '/assets/react.svg'
 
 import cs from './index.module.css'
+import { Button } from '@/components/ui/button'
 
 export default function InertiaExample(
   { rails_version, ruby_version, rack_version, inertia_rails_version }:
@@ -14,6 +15,10 @@ export default function InertiaExample(
   return (
     <div className={cs.root}>
       <Head title="Ruby on Rails + Inertia + React" />
+
+      <h1 className="p-4">Fielize</h1>
+
+      <Button>Click me</Button>
 
       <nav className={cs.subNav}>
         <a href="https://rubyonrails.org" target="_blank">
