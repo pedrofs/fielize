@@ -4,11 +4,13 @@ export type FlashData = {
 }
 
 export type CurrentUser = {
-  id: string
+  id: number
+  clerk_id: string
   email: string | null
   first_name: string | null
   last_name: string | null
   image_url: string | null
+  organization_clerk_id: string | null
 }
 
 export type Breadcrumb = {

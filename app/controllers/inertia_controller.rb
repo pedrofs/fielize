@@ -4,15 +4,16 @@ class InertiaController < ApplicationController
   include PageMetadata
 
   inertia_share currentUser: -> {
-    user = clerk.user
-    next nil unless user
+    next nil unless current_user
 
     {
-      id: user.id,
-      email: user.primary_email_address_id ? user.email_addresses.find { |e| e.id == user.primary_email_address_id }&.email_address : nil,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      image_url: user.image_url
+      id: current_user.id,
+      clerk_id: current_user.clerk_id,
+      email: current_user.email,
+      first_name: current_user.first_name,
+      last_name: current_user.last_name,
+      image_url: current_user.image_url,
+      organization_clerk_id: current_user.organization_clerk_id
     }
   }
 

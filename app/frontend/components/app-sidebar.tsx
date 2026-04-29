@@ -40,9 +40,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 organizationSwitcherTrigger: collapsed
                   ? "p-1 rounded-md hover:bg-sidebar-accent"
                   : "w-full justify-between p-1 rounded-md hover:bg-sidebar-accent",
-                organizationPreview: collapsed ? "gap-0" : "",
-                organizationPreviewTextContainer: collapsed ? "!hidden" : "",
-                organizationSwitcherTriggerIcon: collapsed ? "!hidden" : "",
+                organizationPreview: collapsed ? "gap-0" : ""
               },
             }}
           />
