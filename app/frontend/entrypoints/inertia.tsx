@@ -11,6 +11,8 @@ if (!clerkPublishableKey) {
 void createInertiaApp({
   pages: "../pages",
 
+  title: (title) => (title ? `${title} · Fielize` : "Fielize"),
+
   strictMode: true,
 
   defaults: {

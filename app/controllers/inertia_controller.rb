@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class InertiaController < ApplicationController
+  include PageMetadata
+
   inertia_share currentUser: -> {
     user = clerk.user
     next nil unless user
@@ -13,4 +15,7 @@ class InertiaController < ApplicationController
       image_url: user.image_url
     }
   }
+
+  inertia_share title: -> { @title }
+  inertia_share breadcrumbs: -> { @breadcrumbs || [] }
 end

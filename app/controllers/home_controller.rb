@@ -3,6 +3,9 @@
 class HomeController < InertiaController
   before_action :require_clerk_session!
 
+  with_title "Home"
+  with_breadcrumb label: "Home", path: -> { root_path }
+
   def index
     render inertia: {}
   end
