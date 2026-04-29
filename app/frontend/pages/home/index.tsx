@@ -19,12 +19,12 @@ import {
 
 export default function Home() {
   const { props } = usePage()
-  const title = props.title ?? "Home"
+  const title = props.title
   const breadcrumbs = props.breadcrumbs
 
   return (
     <>
-      <Head title={title} />
+      <Head title={title ?? undefined} />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
@@ -59,7 +59,9 @@ export default function Home() {
             </div>
           </header>
           <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-            <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+            {title && (
+              <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+            )}
             <div className="grid auto-rows-min gap-4 md:grid-cols-3">
               <div className="aspect-video rounded-xl bg-muted/50" />
               <div className="aspect-video rounded-xl bg-muted/50" />
