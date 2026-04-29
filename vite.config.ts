@@ -3,6 +3,7 @@ import inertia from '@inertiajs/vite'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 import RubyPlugin from 'vite-plugin-ruby'
+import inertiaCaseshift from 'inertia-caseshift/vite'
 
 export default defineConfig({
   plugins: [
@@ -10,5 +11,6 @@ export default defineConfig({
     RubyPlugin(),
     inertia(),
     react(),
+    inertiaCaseshift(),
   ],
 })

@@ -5,7 +5,6 @@ Rails.application.routes.draw do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
   root 'home#index'
-  get 'inertia-example', to: 'inertia_example#index'
 
   get "sign-in(/*path)", to: "auth#sign_in"
   get "sign-up(/*path)", to: "auth#sign_up"

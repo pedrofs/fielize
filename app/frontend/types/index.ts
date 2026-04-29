@@ -5,12 +5,12 @@ export type FlashData = {
 
 export type CurrentUser = {
   id: number
-  clerk_id: string
+  clerkId: string
   email: string | null
-  first_name: string | null
-  last_name: string | null
-  image_url: string | null
-  organization_clerk_id: string | null
+  firstName: string | null
+  lastName: string | null
+  imageUrl: string | null
+  organizationClerkId: string | null
 }
 
 export type Breadcrumb = {

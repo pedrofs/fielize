@@ -3,7 +3,7 @@
 class InertiaController < ApplicationController
   include PageMetadata
 
-  inertia_share currentUser: -> {
+  inertia_share current_user: -> {
     next nil unless current_user
 
     {
