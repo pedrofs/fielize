@@ -2,6 +2,9 @@ source "https://rubygems.org"
 
 gem "inertia_rails", "~> 3.21"
 
+# Clerk authentication SDK
+gem "clerk-sdk-ruby", require: "clerk"
+
 # Use specific branch of Rails
 gem "rails", github: "rails/rails", branch: "main"
 # Use postgresql as the database for Active Record

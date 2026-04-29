@@ -4,8 +4,11 @@ Rails.application.routes.draw do
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
-  root 'inertia_example#index'
+  root 'home#index'
   get 'inertia-example', to: 'inertia_example#index'
+
+  get "sign-in(/*path)", to: "auth#sign_in"
+  get "sign-up(/*path)", to: "auth#sign_up"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.
