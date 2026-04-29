@@ -1,7 +1,9 @@
 source "https://rubygems.org"
 
+gem "inertia_rails", "~> 3.21"
+
 # Use specific branch of Rails
-gem "rails", github: "rails/rails", branch: "8-1-stable"
+gem "rails", github: "rails/rails", branch: "main"
 # Use postgresql as the database for Active Record
 gem "pg", "~> 1.1"
 # Use the Puma web server [https://github.com/puma/puma]
@@ -56,3 +58,5 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+gem "vite_rails", "~> 3.10"
