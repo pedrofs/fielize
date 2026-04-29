@@ -44,6 +44,12 @@ next-env.d.ts
 # Vercel
 .vercel
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
 # Sentry
 .sentryclirc
 .env*.local

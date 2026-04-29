@@ -28,7 +28,11 @@ jobs:
         run: pnpm typecheck
 
       - name: Test
+        # Integration tests using POSTGRES_URL_NON_POOLING skip via describe.skipIf
+        # but the import chain still touches lib/env, so we bypass validation.
         run: pnpm test
+        env:
+          SKIP_ENV_VALIDATION: "true"
 
       - name: Build
         run: pnpm build
