@@ -8,6 +8,16 @@ Rails.application.routes.draw do
 
   get "sign-in(/*path)", to: "auth#sign_in"
   get "sign-up(/*path)", to: "auth#sign_up"
+
+  namespace :organizations do
+    resources :merchants do
+      resources :invitations, only: :create, module: :merchants
+    end
+  end
+
+  namespace :merchants do
+    # Merchant-user-scoped routes (TBD)
+  end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 
   # Reveal health status on /up that returns 200 if the app boots with no exceptions, otherwise 500.

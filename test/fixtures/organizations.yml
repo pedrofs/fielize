@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: MyString
+  clerk_organization_id: MyString
+  image_url: MyString
+  slug: MyString
+
+two:
+  name: MyString
+  clerk_organization_id: MyString
+  image_url: MyString
+  slug: MyString

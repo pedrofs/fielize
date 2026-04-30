@@ -1,7 +1,9 @@
 import * as React from "react"
 import { Link, usePage } from "@inertiajs/react"
 import { OrganizationSwitcher, UserButton } from "@clerk/react"
-import { HomeIcon } from "lucide-react"
+import { HomeIcon, StoreIcon } from "lucide-react"
+
+import type { SharedProps } from "@/types"
 
 import {
   Sidebar,
@@ -18,9 +20,10 @@ import {
 } from "@/components/ui/sidebar"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { url } = usePage()
+  const { url, props: pageProps } = usePage<SharedProps>()
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
+  const isOrganizationUser = !!pageProps.currentUser?.organizationId
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -62,6 +65,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {isOrganizationUser && (
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  tooltip="Merchants"
+                  isActive={url.startsWith("/organizations/merchants")}
+                >
+                  <Link href="/organizations/merchants">
+                    <StoreIcon />
+                    <span>Merchants</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>

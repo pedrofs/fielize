@@ -72,3 +72,15 @@ Four logical Postgres databases in production (single primary in dev/test): `pri
 - Controllers handling page renders inherit from `InertiaController`, not directly from `ApplicationController`.
 - Frontend imports use the `@/...` alias (resolves to `app/frontend/`).
 - The TS check command (`npm run check`) is the only frontend "test" — there is no Jest/Vitest config. Frontend behaviour is exercised through Rails system tests.
+- **Casing across the Inertia boundary**: server keys are `snake_case`, client keys are `camelCase`. The `inertia-caseshift` Vite plugin (in `vite.config.ts`) handles the bidirectional conversion automatically — props, errors, flash, deferred/merge/scroll metadata, and form data. Always write Ruby/Rails props (`inertia_share`, `render inertia: {...}`, model attributes) in `snake_case` and TypeScript types/components (`SharedProps`, `usePage().props.someThing`) in `camelCase`. Don't manually convert in either direction.
+- **Nested resources mirror their parent in the controller module**: when a route is nested under another resource, the child controller lives under a module named after the parent. Use `module:` on `resources` to make the controller path follow the URL path. Example:
+
+    ```ruby
+    namespace :organizations do
+      resources :merchants do
+        resources :invitations, only: :create, module: :merchants
+      end
+    end
+    ```
+
+  → `Organizations::Merchants::InvitationsController` at `app/controllers/organizations/merchants/invitations_controller.rb`. Don't flatten nested resources into the parent namespace (e.g. `Organizations::InvitationsController`); the module nesting must mirror the URL nesting.
