@@ -24,30 +24,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
   const isOrganizationUser = !!pageProps.currentUser?.organizationId
+  const isMerchantUser = !!pageProps.currentUser?.merchantId
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div
+        <Link
+          href="/"
           className={
             collapsed
-              ? "flex justify-center px-0 py-1.5"
-              : "flex items-center px-2 py-1.5"
+              ? "flex items-center justify-center px-0 py-1.5"
+              : "flex items-center gap-2 px-2 py-1.5"
           }
         >
-          <OrganizationSwitcher
-            hidePersonal={false}
-            appearance={{
-              elements: {
-                rootBox: collapsed ? "" : "w-full",
-                organizationSwitcherTrigger: collapsed
-                  ? "p-1 rounded-md hover:bg-sidebar-accent"
-                  : "w-full justify-between p-1 rounded-md hover:bg-sidebar-accent",
-                organizationPreview: collapsed ? "gap-0" : ""
-              },
-            }}
-          />
-        </div>
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
+            F
+          </div>
+          {!collapsed && <span className="font-semibold">Fielize</span>}
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -83,6 +77,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
+        {!isMerchantUser && (
+          <div
+            className={
+              collapsed
+                ? "flex justify-center px-0 py-1.5"
+                : "flex items-center px-2 py-1.5"
+            }
+          >
+            <OrganizationSwitcher
+              hidePersonal={false}
+              appearance={{
+                elements: {
+                  rootBox: collapsed ? "" : "w-full",
+                  organizationSwitcherTrigger: collapsed
+                    ? "p-1 rounded-md hover:bg-sidebar-accent"
+                    : "w-full justify-between p-1 rounded-md hover:bg-sidebar-accent",
+                  organizationPreview: collapsed ? "gap-0" : ""
+                },
+              }}
+            />
+          </div>
+        )}
         <div
           className={
             collapsed
@@ -98,10 +114,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 userButtonTrigger: collapsed
                   ? "p-1 rounded-md hover:bg-sidebar-accent"
                   : "w-full justify-start gap-2 p-1 rounded-md hover:bg-sidebar-accent",
-                userButtonBox: collapsed ? "" : "flex-row-reverse w-full justify-end",
+                userButtonBox: collapsed ? "" : "flex-row w-full gap-2 min-w-0",
                 userButtonOuterIdentifier: collapsed
                   ? "!hidden"
-                  : "text-sm font-medium",
+                  : "text-sm font-medium truncate",
               },
             }}
           />
