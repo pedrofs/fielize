@@ -2,6 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Where to find product context
+
+- `ai_docs/vision.md` — strategic positioning, target customer, what we're building and why.
+- `ai_docs/wireframes.html` — visual references for customer / merchant / admin surfaces.
+- `ai_plans/` — phased build plans. Start at `ai_plans/00-overview.md`. Each phase plan is self-contained: schema, models, controllers, frontend, verification. When picking up work on a phase, read the relevant plan first.
+
 ## Stack
 
 - **Backend**: Rails (`main` branch from GitHub) on Ruby 4.0.1, PostgreSQL, Puma. Uses Solid Cache / Solid Queue / Solid Cable (database-backed adapters — no Redis required).
