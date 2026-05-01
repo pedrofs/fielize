@@ -14,6 +14,13 @@ gem "puma", ">= 5.0"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
+# E.164 phone normalization + validation. Used by Customer.
+gem "phonelib"
+
+# QR code generation as SVG/PNG. Used by merchant detail pages
+# (printable QR for `/s/:merchant_slug`) and admin exports.
+gem "rqrcode"
+
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"
 

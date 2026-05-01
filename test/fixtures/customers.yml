@@ -1,0 +1,12 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+maria:
+  phone: "+5553988887777"
+  name: Maria Silva
+  lgpd_opted_in_at: <%= 1.day.ago %>
+
+joao:
+  phone: "+5598999990000"
+  name: João Pereira
+  lgpd_opted_in_at: <%= 2.days.ago %>
+  verified_at: <%= 1.day.ago %>

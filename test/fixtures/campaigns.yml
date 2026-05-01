@@ -1,0 +1,23 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+#
+# STI: `type:` must be set explicitly per record.
+
+pasaporte:
+  type: OrganizationCampaign
+  organization: one
+  name: Pasaporte de Compras 2026
+  slug: pasaporte-2026
+  status: active
+  starts_at: <%= 1.month.ago %>
+  ends_at:   <%= 6.months.from_now %>
+  entry_policy: cumulative
+  requires_validation: false
+
+cartao_calzados:
+  type: LoyaltyCampaign
+  organization: one
+  merchant: one
+  name: Cartão Fidelidade Calzados
+  slug: cartao-fidelidade-calzados
+  status: active
+  requires_validation: false

@@ -1,17 +1,17 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
-one:
-  clerk_id: MyString
-  email: MyString
-  first_name: MyString
-  last_name: MyString
-  image_url: MyString
-  organization_clerk_id: MyString
+admin:
+  clerk_id: user_test_admin
+  email: admin@example.com
+  first_name: Pedro
+  last_name: Steimbruch
+  image_url: https://example.com/admin.png
+  organization: one
 
-two:
-  clerk_id: MyString
-  email: MyString
-  first_name: MyString
-  last_name: MyString
-  image_url: MyString
-  organization_clerk_id: MyString
+merchant_staff:
+  clerk_id: user_test_merchant
+  email: ricardo@example.com
+  first_name: Ricardo
+  last_name: Calzados
+  image_url: https://example.com/ricardo.png
+  merchant: one

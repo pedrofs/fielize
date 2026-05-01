@@ -1,9 +1,11 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  name: MyString
+  name: Calzados Ricardo
   organization: one
+  slug: calzados-ricardo
 
 two:
-  name: MyString
+  name: Moda Río Branco
   organization: two
+  slug: moda-rio-branco

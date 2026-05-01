@@ -1,0 +1,13 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+pasaporte_iphone:
+  campaign: pasaporte
+  name: Sorteio iPhone 15
+  threshold: 6
+  position: 0
+
+cartao_cafe:
+  campaign: cartao_calzados
+  name: Café grátis
+  threshold: 5
+  position: 0

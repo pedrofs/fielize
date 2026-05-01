@@ -2,6 +2,8 @@ class User < ApplicationRecord
   belongs_to :organization, optional: true
   belongs_to :merchant, optional: true
 
+  has_many :redemptions, foreign_key: :merchant_user_id, dependent: :nullify
+
   validates :clerk_id, presence: true, uniqueness: true
   validate :scope_is_exclusive
 
