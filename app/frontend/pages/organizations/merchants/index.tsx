@@ -22,13 +22,13 @@ export default function MerchantsIndex({ merchants }: Props) {
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {merchants.length === 0
-            ? "No merchants yet."
-            : `${merchants.length} merchant${merchants.length === 1 ? "" : "s"}.`}
+            ? "Nenhum lojista cadastrado."
+            : `${merchants.length} lojista${merchants.length === 1 ? "" : "s"}.`}
         </p>
         <Button asChild>
           <Link href="/organizations/merchants/new">
             <PlusIcon data-icon="inline-start" />
-            New merchant
+            Novo lojista
           </Link>
         </Button>
       </div>
@@ -53,7 +53,7 @@ export default function MerchantsIndex({ merchants }: Props) {
                   <Button variant="ghost" size="icon" asChild>
                     <Link href={`/organizations/merchants/${merchant.id}/edit`}>
                       <PencilIcon />
-                      <span className="sr-only">Edit</span>
+                      <span className="sr-only">Editar</span>
                     </Link>
                   </Button>
                   <Button
@@ -68,7 +68,7 @@ export default function MerchantsIndex({ merchants }: Props) {
                       as="button"
                     >
                       <Trash2Icon />
-                      <span className="sr-only">Delete</span>
+                      <span className="sr-only">Excluir</span>
                     </Link>
                   </Button>
                 </div>

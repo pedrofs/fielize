@@ -19,7 +19,7 @@ export default function NewMerchant() {
     <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
       <div className="flex flex-col gap-2">
         <label htmlFor="merchant_name" className="text-sm font-medium">
-          Name
+          Nome
         </label>
         <Input
           id="merchant_name"
@@ -40,10 +40,10 @@ export default function NewMerchant() {
 
       <div className="flex gap-2">
         <Button type="submit" disabled={form.processing}>
-          Create merchant
+          Criar lojista
         </Button>
         <Button type="button" variant="ghost" asChild>
-          <a href="/organizations/merchants">Cancel</a>
+          <a href="/organizations/merchants">Cancelar</a>
         </Button>
       </div>
     </form>

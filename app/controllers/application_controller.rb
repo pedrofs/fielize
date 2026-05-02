@@ -47,7 +47,11 @@ class ApplicationController < ActionController::Base
     return @current_organization if defined?(@current_organization)
     return @current_organization = nil unless clerk.organization_id
 
-    @current_organization = Organization.find_or_create_by!(clerk_organization_id: clerk.organization_id)
+    co = Clerk::SDK.new.organizations.get(organization_id: clerk.organization_id).organization
+    org = Organization.find_or_initialize_by(clerk_organization_id: clerk.organization_id)
+    org.assign_attributes(name: co&.name, image_url: co&.image_url)
+    org.save! if org.changed?
+    @current_organization = org
   rescue ActiveRecord::RecordNotUnique
     @current_organization = Organization.find_by!(clerk_organization_id: clerk.organization_id)
   end

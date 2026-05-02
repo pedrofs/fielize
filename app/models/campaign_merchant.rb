@@ -1,16 +1,20 @@
 # frozen_string_literal: true
 
 class CampaignMerchant < ApplicationRecord
-  belongs_to :campaign
+  belongs_to :organization_campaign, foreign_key: :campaign_id, inverse_of: :campaign_merchants
   belongs_to :merchant
 
-  validates :campaign_id, uniqueness: { scope: :merchant_id }
-  validate  :campaign_must_be_organization_campaign
+  validates :merchant_id, uniqueness: { scope: :campaign_id }
+  before_destroy :prevent_removal_when_campaign_active
 
   private
 
-  def campaign_must_be_organization_campaign
-    return if campaign.nil?
-    errors.add(:campaign, "must be an OrganizationCampaign") unless campaign.is_a?(OrganizationCampaign)
+  # Once a campaign is active, merchants can be added but not removed.
+  # The "end the campaign first" rule applies regardless of removal path
+  # (merchant_ids=, association destroy, etc.).
+  def prevent_removal_when_campaign_active
+    return unless organization_campaign.active?
+    errors.add(:base, "Não é possível remover lojistas de uma campanha ativa.")
+    throw :abort
   end
 end

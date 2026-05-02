@@ -1,10 +1,9 @@
 Rails.application.routes.draw do
-
   # Redirect to localhost from 127.0.0.1 to use same IP address with Vite server
   constraints(host: "127.0.0.1") do
     get "(*path)", to: redirect { |params, req| "#{req.protocol}localhost:#{req.port}/#{params[:path]}" }
   end
-  root 'home#index'
+  root "home#index"
 
   get "sign-in(/*path)", to: "auth#sign_in"
   get "sign-up(/*path)", to: "auth#sign_up"
@@ -12,6 +11,13 @@ Rails.application.routes.draw do
   namespace :organizations do
     resources :merchants do
       resources :invitations, only: :create, module: :merchants
+    end
+
+    resources :campaigns do
+      # State transitions modeled as their own sub-resources, RESTfully.
+      # See "RESTful controllers only" in CLAUDE.md.
+      resource :activation,  only: :create, module: :campaigns
+      resource :termination, only: :create, module: :campaigns
     end
   end
 

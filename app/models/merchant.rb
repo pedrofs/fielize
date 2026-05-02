@@ -8,7 +8,7 @@ class Merchant < ApplicationRecord
   has_many :stamps, dependent: :destroy
   has_many :loyalty_campaigns, dependent: :destroy
   has_many :campaign_merchants, dependent: :destroy
-  has_many :organization_campaigns, through: :campaign_merchants, source: :campaign
+  has_many :organization_campaigns, through: :campaign_merchants
   has_many :redemptions, dependent: :destroy
 
   validates :name, presence: true

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Link, usePage } from "@inertiajs/react"
 import { OrganizationSwitcher, UserButton } from "@clerk/react"
-import { HomeIcon, StoreIcon } from "lucide-react"
+import { HomeIcon, StoreIcon, MegaphoneIcon } from "lucide-react"
 
 import type { SharedProps } from "@/types"
 
@@ -60,18 +60,32 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </SidebarMenuButton>
             </SidebarMenuItem>
             {isOrganizationUser && (
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Merchants"
-                  isActive={url.startsWith("/organizations/merchants")}
-                >
-                  <Link href="/organizations/merchants">
-                    <StoreIcon />
-                    <span>Merchants</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Lojistas"
+                    isActive={url.startsWith("/organizations/merchants")}
+                  >
+                    <Link href="/organizations/merchants">
+                      <StoreIcon />
+                      <span>Lojistas</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Campanhas"
+                    isActive={url.startsWith("/organizations/campaigns")}
+                  >
+                    <Link href="/organizations/campaigns">
+                      <MegaphoneIcon />
+                      <span>Campanhas</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
             )}
           </SidebarMenu>
         </SidebarGroup>

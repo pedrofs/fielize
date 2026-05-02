@@ -52,18 +52,18 @@ export default function MerchantShow({ merchant, members }: Props) {
         <Button variant="outline" asChild>
           <Link href={`/organizations/merchants/${merchant.id}/edit`}>
             <PencilIcon data-icon="inline-start" />
-            Edit
+            Editar
           </Link>
         </Button>
       </div>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Invite a user</h2>
+        <h2 className="text-lg font-semibold">Convidar usuário</h2>
         <form onSubmit={onInvite} className="flex max-w-lg items-start gap-2">
           <div className="flex-1">
             <Input
               type="email"
-              placeholder="user@example.com"
+              placeholder="usuario@exemplo.com"
               value={inviteForm.data.invitation.email}
               onChange={(e) =>
                 inviteForm.setData("invitation", { email: e.target.value })
@@ -79,19 +79,19 @@ export default function MerchantShow({ merchant, members }: Props) {
           </div>
           <Button type="submit" disabled={inviteForm.processing}>
             <MailPlusIcon data-icon="inline-start" />
-            Invite
+            Convidar
           </Button>
         </form>
         <p className="text-xs text-muted-foreground">
-          Sends a Clerk invitation email. The user will land in this merchant
-          once they sign up.
+          Envia um e-mail de convite. O usuário será adicionado a este lojista
+          após se cadastrar.
         </p>
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Members</h2>
+        <h2 className="text-lg font-semibold">Membros</h2>
         {members.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No members yet.</p>
+          <p className="text-sm text-muted-foreground">Nenhum membro ainda.</p>
         ) : (
           <div className="rounded-md border">
             <ul className="divide-y">

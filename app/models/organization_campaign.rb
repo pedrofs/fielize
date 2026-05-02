@@ -7,14 +7,18 @@ class OrganizationCampaign < Campaign
 
   enum :entry_policy, ENTRY_POLICIES.index_with(&:itself)
 
-  has_many :campaign_merchants, foreign_key: :campaign_id, dependent: :destroy
+  has_many :campaign_merchants, foreign_key: :campaign_id, inverse_of: :organization_campaign, dependent: :destroy
   has_many :merchants, through: :campaign_merchants
 
+  accepts_nested_attributes_for :prizes, allow_destroy: true
+
+  before_validation :null_out_thresholds_for_simple_policy
   validates :entry_policy, inclusion: { in: ENTRY_POLICIES }
   validates :starts_at, :ends_at, presence: true
   validate  :ends_after_starts
   validate  :merchant_id_must_be_blank
   validate  :policy_specific_config
+  validate  :prevent_merchant_removal_when_active
 
   def confirmed_stamps_for(customer)
     stamps.where(status: "confirmed", customer: customer)
@@ -59,5 +63,23 @@ class OrganizationCampaign < Campaign
     elsif simple?
       errors.add(:day_cap, "must be a positive integer when set") if day_cap && day_cap < 1
     end
+  end
+
+  # Defense in depth: simple-policy campaigns must not carry thresholds,
+  # even if a stale form posts one.
+  def null_out_thresholds_for_simple_policy
+    return unless simple?
+    prizes.each { |p| p.threshold = nil unless p.marked_for_destruction? }
+  end
+
+  # Adds always allowed; removes only while draft. Once active, dropping
+  # a merchant aborts the save.
+  def prevent_merchant_removal_when_active
+    return unless persisted? && active?
+    persisted_join_ids = campaign_merchants.where.not(id: nil).pluck(:merchant_id)
+    surviving_ids = campaign_merchants.reject(&:marked_for_destruction?).map(&:merchant_id)
+    removed = persisted_join_ids - surviving_ids
+    return if removed.empty?
+    errors.add(:base, "Não é possível remover lojistas de uma campanha ativa.")
   end
 end

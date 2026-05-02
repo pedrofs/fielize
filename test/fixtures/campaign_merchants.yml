@@ -1,5 +1,5 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 pasaporte_calzados:
-  campaign: pasaporte
+  organization_campaign: pasaporte
   merchant: one
