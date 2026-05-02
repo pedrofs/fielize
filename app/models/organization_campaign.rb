@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class OrganizationCampaign < Campaign
+  include Activatable
+
   ENTRY_POLICIES = %w[simple cumulative].freeze
 
   enum :entry_policy, ENTRY_POLICIES.index_with(&:itself)

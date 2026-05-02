@@ -132,6 +132,11 @@ Four logical Postgres databases in production (single primary in dev/test): `pri
 
     - **Concerns are good when they capture a real "acts as / has trait" axis** (`Sluggable`, `Activatable`, `Confirmable`, `Mergeable`). They're bad when used as arbitrary file-splits to "tidy up" a fat model — that's still procedural code, just relocated. A good concern reflects a domain concept; a bad one is a dumping ground.
 
+    - **Concern placement depends on scope**:
+      - **Cross-model concerns** (≥2 models share the trait) live at `app/models/concerns/<name>.rb` as a top-level constant: `Sluggable`. The Sluggable concern is shared by `Organization`, `Merchant`, and `Campaign`.
+      - **Single-model concerns** (only one model uses it, but the behavior is cohesive enough to warrant its own file) live at `app/models/<model_name>/<name>.rb`, namespaced under the model: `OrganizationCampaign::Activatable` at `app/models/organization_campaign/activatable.rb`. Even when only one model uses it today, factoring a coherent slice (state-transition guards, redemption math, code generation) into its own concern improves readability, makes the model's surface area legible at a glance, and isolates the change footprint when that slice evolves. **Do not** dump single-model concerns into `app/models/concerns/` — the global namespace there is reserved for cross-model traits.
+      - **A concern that gets reused later** moves out from under the model namespace into `app/models/concerns/`. Refactor when the second user appears, not before.
+
     - **PORO helpers under the model namespace are fine** when something genuinely warrants its own class but is internal to one model — e.g. `Stamp::CodeGenerator`, `Recording::Copier`. The public API stays on the model (`stamp.confirm_pending_for(...)`); the helper is a private collaborator. Never expose helpers as the call site.
 
     - **System-boundary integrations are jobs or `lib/` adapters**, not services. `WhatsAppDeliveryJob` over `WhatsAppDispatcher`. The job IS the boundary; a "dispatcher service" wrapping a job is one indirection too many.

@@ -175,8 +175,10 @@ class Campaign < ApplicationRecord
   scope :active, -> { where(status: 'active') }
   scope :ended,  -> { where(status: 'ended') }
 
-  def activate!; update!(status: 'active'); end
-  def end!;      update!(status: 'ended');  end
+  # No state-transition methods on the base. The OrganizationCampaign
+  # lifecycle (draft → active → ended) lives in
+  # OrganizationCampaign::Activatable (see 03-impl-admin.md §6.2).
+  # LoyaltyCampaign uses its own #disable!(reset:) terminator below.
 end
 
 class OrganizationCampaign < Campaign

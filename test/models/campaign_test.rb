@@ -59,23 +59,28 @@ class CampaignTest < ActiveSupport::TestCase
     assert other_org_campaign.valid?, other_org_campaign.errors.full_messages.inspect
   end
 
-  test "activate! and end! flip status" do
-    campaign = OrganizationCampaign.create!(
+  test "status predicates and scopes" do
+    draft = campaigns(:pasaporte) # active in fixtures, but the fixture says active
+    # Use fresh campaigns to avoid fixture coupling.
+    new_draft = OrganizationCampaign.create!(
       organization: organizations(:one),
-      name: "Draft Campaign",
+      name: "Predicates Test",
       starts_at: 1.day.from_now,
       ends_at: 1.month.from_now,
       entry_policy: "cumulative"
     )
-    assert campaign.draft?
+    assert new_draft.draft?
+    refute new_draft.active?
+    refute new_draft.ended?
+    assert_includes Campaign.draft, new_draft
 
-    campaign.activate!
-    assert campaign.active?
-    refute campaign.draft?
+    new_draft.update!(status: "active")
+    assert new_draft.active?
+    assert_includes Campaign.active, new_draft
 
-    campaign.end!
-    assert campaign.ended?
-    refute campaign.active?
+    new_draft.update!(status: "ended")
+    assert new_draft.ended?
+    assert_includes Campaign.ended, new_draft
   end
 
   test "Sluggable derives slug from name on create" do

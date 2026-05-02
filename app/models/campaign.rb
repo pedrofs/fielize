@@ -25,11 +25,7 @@ class Campaign < ApplicationRecord
   def active?;   status == "active";   end
   def ended?;    status == "ended";    end
 
-  def activate!
-    update!(status: "active")
-  end
-
-  def end!
-    update!(status: "ended")
-  end
+  # No `activate!` / `end!` on the base. The OrganizationCampaign lifecycle
+  # (draft → active → ended) lives in OrganizationCampaign::Activatable.
+  # LoyaltyCampaign uses its own #disable!(reset:) terminator.
 end

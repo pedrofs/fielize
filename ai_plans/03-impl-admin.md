@@ -480,7 +480,7 @@ Notes on params:
   `accepts_nested_attributes_for :prizes, allow_destroy: true` on
   `OrganizationCampaign` (see §6). The controller does
   `assign_attributes` + `save` and lets Active Record do the work.
-- `merchant_ids` is permitted as an array of ints; the existing
+- `merchant_ids` is permitted as an array of uuids; the existing
   `has_many :merchants, through: :campaign_merchants` association
   natively supports `campaign.merchant_ids = [...]`. The "no removal
   while active" rule lives on the model, not in the controller.
@@ -521,9 +521,7 @@ class Organizations::Campaigns::ActivationsController < Organizations::BaseContr
   private
 
   def set_campaign
-    @campaign = current_organization.campaigns
-                                    .where(type: "OrganizationCampaign")
-                                    .find(params[:campaign_id])
+    @campaign = current_organization.organization_campaigns.find(params[:campaign_id])
   end
 end
 ```
@@ -550,9 +548,7 @@ class Organizations::Campaigns::TerminationsController < Organizations::BaseCont
   private
 
   def set_campaign
-    @campaign = current_organization.campaigns
-                                    .where(type: "OrganizationCampaign")
-                                    .find(params[:campaign_id])
+    @campaign = current_organization.organization_campaigns.find(params[:campaign_id])
   end
 end
 ```
@@ -560,7 +556,7 @@ end
 File path: `app/controllers/organizations/campaigns/terminations_controller.rb`.
 
 The shared `set_campaign` helper between the two sub-controllers can be
-extracted into a small `Organizations::Campaigns::ScopedToCampaign`
+extracted into a small `Organizations::Campaigns::CampaignScoped`
 concern if a third sub-controller appears; not needed for v1.
 
 ## 6. Model methods and concerns
@@ -637,25 +633,42 @@ is acceptable; the callback version is the default because it lets a
 single `assign_attributes` + `save` round-trip through normal Rails
 form semantics. Pick one and stick with it.
 
-### 6.2 Activation guards (replaces `Activate`)
+### 6.2 Lifecycle (activate + end) as a single-model concern
 
-Use Rails validation contexts so `valid?(:activation)` can be invoked
-before the status flip. Guards are type-specific to
-`OrganizationCampaign`, so they live on the subclass — no concern.
+The lifecycle of an `OrganizationCampaign` — `draft → active → ended`
+— is one cohesive feature: the activation guards, the `activate!`
+orchestrator, and the matching `end!` transition. Both transitions
+belong together; isolating them in their own concern names the trait
+("the campaign has a lifecycle") and keeps the surface area of
+`OrganizationCampaign` tidy. Per the CLAUDE.md "single-model concern"
+convention, it lives at `app/models/organization_campaign/activatable.rb`
+namespaced under the model:
 
 ```ruby
-class OrganizationCampaign < Campaign
-  validate :prizes_present_for_activation,            on: :activation
-  validate :all_prizes_have_threshold_for_activation, on: :activation
-  validate :merchants_present_for_activation,         on: :activation
+# app/models/organization_campaign/activatable.rb
+module OrganizationCampaign::Activatable
+  extend ActiveSupport::Concern
+
+  included do
+    validate :prizes_present_for_activation,            on: :activation
+    validate :all_prizes_have_threshold_for_activation, on: :activation
+    validate :merchants_present_for_activation,         on: :activation
+  end
 
   # Flip draft → active. Returns false (and populates errors) on guard
-  # failure. Re-activation of an ended/active campaign also fails the
-  # `:activation` context via the status guard below.
+  # failure. Activating a non-draft campaign is a no-op that returns
+  # false; the controller surfaces an error in that case.
   def activate!
     return false unless draft?
     return false unless valid?(:activation)
     update!(status: "active")
+  end
+
+  # Flip active → ended. Idempotent on already-ended campaigns; returns
+  # false on draft (you end after activating, not before).
+  def end!
+    return false unless active?
+    update!(status: "ended")
   end
 
   private
@@ -676,26 +689,59 @@ class OrganizationCampaign < Campaign
 end
 ```
 
-The controller (§5.5) is just:
+`OrganizationCampaign` includes it:
 
 ```ruby
+class OrganizationCampaign < Campaign
+  include Activatable
+  # ...
+end
+```
+
+The controllers (§5.5 / §5.6) become just:
+
+```ruby
+# Activations#create
 if @campaign.activate!
   redirect_to organizations_campaign_path(@campaign), notice: "Campanha ativada."
 else
   redirect_to organizations_campaign_path(@campaign), inertia: { errors: @campaign.errors }
 end
+
+# Terminations#create
+if @campaign.end!
+  redirect_to organizations_campaign_path(@campaign), notice: "Campanha encerrada."
+else
+  redirect_to organizations_campaign_path(@campaign), alert: "Apenas campanhas ativas podem ser encerradas."
+end
 ```
 
-Termination (`@campaign.end!`) already lives on `Campaign` per the
-data-model plan and stays there — same vanilla shape.
+`LoyaltyCampaign` doesn't share these transitions: it stays "active"
+until the merchant calls its own `disable!(reset:)` (a separate domain
+concept defined in the data-model plan). So `Campaign` base no longer
+defines `activate!` or `end!` — they live on the lifecycle concern,
+mixed only into the subclass that has this lifecycle.
 
-### 6.3 What's deliberately *not* a concern
+### 6.3 Why namespace the concern under `OrganizationCampaign`
 
-We don't introduce an `Activatable` concern: the guards encode
-type-specific business rules, and there's no second model that "acts
-as activatable" with the same semantics. (`Sluggable` from the data-model
-plan is the right shape for a concern — a generic "has a slug" trait
-applied to multiple models.)
+Two notes on placement:
+
+- **Single-model scope** — only `OrganizationCampaign` uses these
+  activation guards today. They encode policy-specific rules
+  (`entry_policy == "cumulative"` ⇒ thresholds required; merchant
+  enrollment required; etc.) that don't translate to LoyaltyCampaign or
+  any other future subclass. Per CLAUDE.md, single-model concerns live
+  under the model's namespace, not at `app/models/concerns/`.
+- **If a second activator appears** — say, a future `RaffleCampaign`
+  with similar but not identical activation guards — generalize at that
+  point: rename to `Campaign::Activatable` and move the file to
+  `app/models/campaign/activatable.rb`, keeping the type-specific guards
+  on the subclasses themselves. Don't anticipate the generalization
+  before the second use case exists.
+
+(Cross-model cousin: `Sluggable` from the data-model plan lives at
+`app/models/concerns/sluggable.rb` because it's shared by `Organization`,
+`Merchant`, and `Campaign`.)
 
 ## 7. Inertia pages
 
