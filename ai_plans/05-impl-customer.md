@@ -230,15 +230,17 @@ Two actions: `#show` and `#scan`.
     - **No cookie**: validate identify params (`phone`,
       `lgpd_opted_in`); if invalid, re-render
       `show` with `errors`. If valid:
-      1. `customer = Customer::Identifier.call(...)` — see §6.
+      1. `customer = Customer.identify!(phone: ..., lgpd_opted_in: ..., name: ...)` —
+         see §6.
       2. Set `cookies.signed[:customer_session] = { value: {
          customer_id: customer.id }, ... }` with the cookie options in
          §7.
     - **Cookie present**: skip identify; reuse `current_customer`.
-  - Either way: `result = ScanRegistrar.call(customer:, merchant:)`.
+  - Either way: `visit = Visit.create_from_scan!(customer: ..., merchant: ...)`.
   - Re-render `customer/store/show.tsx` with `mode: "result"`, the
     visit summary, confirmed/pending stamp lists, and the shared `code`
-    (if any).
+    (if any). The controller reads these off the visit (e.g.
+    `visit.confirmed_stamps`, `visit.pending_stamps`, `visit.shared_code`).
 
 ### `app/controllers/customer/verifications_controller.rb`
 
@@ -267,154 +269,210 @@ The verification link works regardless of cookie presence; the customer
 who taps it from WhatsApp on a different device than the one that
 scanned will not have the cookie, and that is fine.
 
-## 6. Service objects
+## 6. Domain model APIs
 
-### `app/services/scan_registrar.rb`
+We follow vanilla Rails ([Vanilla Rails is plenty][vrip], [Good
+concerns][gc]): **no `app/services/`**. Multi-step writes live as class
+or instance methods on the rich domain model that owns the data.
+Internal helpers, when they earn their keep, are POROs nested under the
+model's namespace (e.g. `Stamp::CodeGenerator`). System-boundary
+integrations (third-party APIs) belong in jobs — see §8.
 
-Single multi-step write. Wrap in a transaction.
+[vrip]: https://dev.37signals.com/vanilla-rails-is-plenty/
+[gc]: https://dev.37signals.com/good-concerns/
+
+### `Visit.create_from_scan!` and `Visit#materialize_stamps!`
+
+Single multi-step write. Wrap in a transaction. Lives at
+`app/models/visit.rb`.
 
 ```ruby
-class ScanRegistrar
-  Result = Struct.new(:visit, :confirmed_stamps, :pending_stamps, :code, keyword_init: true)
+class Visit < ApplicationRecord
+  belongs_to :customer
+  belongs_to :merchant
+  has_many :stamps, dependent: :restrict_with_exception
 
-  def self.call(customer:, merchant:)
-    new(customer:, merchant:).call
-  end
-
-  def initialize(customer:, merchant:)
-    @customer = customer
-    @merchant = merchant
-  end
-
-  def call
-    Visit.transaction do
-      visit = Visit.create!(customer: @customer, merchant: @merchant)
-
-      campaigns = active_campaigns_for(@merchant)
-      requires_code = campaigns.any?(&:requires_validation?)
-      shared_code   = requires_code ? generate_unique_code : nil
-      expires_at    = requires_code ? Stamp::CODE_TTL.from_now : nil
-
-      rows = campaigns.map do |campaign|
-        if campaign.requires_validation?
-          base_pending_row(visit, campaign, code: shared_code, expires_at: expires_at)
-        else
-          base_confirmed_row(visit, campaign)
-        end
-      end
-
-      # Idempotent at (visit_id, campaign_id) — concurrent scans cannot
-      # double-stamp. ON CONFLICT DO NOTHING via the unique index from
-      # 01-data-model.md.
-      Stamp.insert_all!(rows, unique_by: %i[visit_id campaign_id]) if rows.any?
-
-      stamps = visit.stamps.includes(:campaign).to_a
-      Result.new(
-        visit: visit,
-        confirmed_stamps: stamps.select { |s| s.status == "confirmed" },
-        pending_stamps:   stamps.select { |s| s.status == "pending" },
-        code: shared_code
-      )
+  # Creates a Visit + materializes one Stamp per active campaign at the
+  # merchant. Idempotent at (visit_id, campaign_id) — see #materialize_stamps!.
+  # Returns the Visit. Callers read confirmed_stamps / pending_stamps /
+  # shared_code off the returned record.
+  def self.create_from_scan!(customer:, merchant:)
+    transaction do
+      visit = create!(customer: customer, merchant: merchant)
+      visit.materialize_stamps!
+      visit
     end
   end
 
-  private
+  # Inserts one Stamp per active campaign at this visit's merchant.
+  # Pending stamps from the same visit share ONE 6-digit code; confirmed
+  # stamps carry no code. Safe to retry — ON CONFLICT (visit_id,
+  # campaign_id) DO NOTHING via the unique index from 01-data-model.md.
+  def materialize_stamps!
+    active = merchant.active_campaigns_at(Time.current)
+    return if active.empty?
 
-  # Active campaigns at this merchant, both kinds:
-  # - LoyaltyCampaign: campaigns.merchant_id = merchant.id, status='active'
-  # - OrganizationCampaign: joined via campaign_merchants, status='active'
-  def active_campaigns_for(merchant)
-    org_ids = CampaignMerchant.where(merchant_id: merchant.id).pluck(:campaign_id)
-    Campaign.where(status: "active").where(
-      "(merchant_id = ?) OR (id IN (?))",
-      merchant.id, org_ids
-    ).to_a
-  end
+    needs_code = active.any?(&:requires_validation?)
+    code       = needs_code ? Stamp::CodeGenerator.call(merchant_id: merchant_id) : nil
+    expires_at = needs_code ? Stamp::CodeGenerator::CODE_TTL.from_now : nil
+    now        = Time.current
 
-  def base_confirmed_row(visit, campaign)
-    {
-      visit_id: visit.id, campaign_id: campaign.id,
-      customer_id: @customer.id, merchant_id: @merchant.id,
-      status: "confirmed",
-      confirmed_at: Time.current,
-      created_at: Time.current
-    }
-  end
-
-  def base_pending_row(visit, campaign, code:, expires_at:)
-    {
-      visit_id: visit.id, campaign_id: campaign.id,
-      customer_id: @customer.id, merchant_id: @merchant.id,
-      status: "pending",
-      code: code, expires_at: expires_at,
-      created_at: Time.current
-    }
-  end
-
-  # Per 01-data-model.md, no DB unique on (merchant_id, code) — pending
-  # stamps from one visit share one code by design. The collision check
-  # is across DIFFERENT visits' active codes at the same merchant.
-  def generate_unique_code
-    loop do
-      candidate = SecureRandom.random_number(1_000_000).to_s.rjust(6, "0")
-      taken = Stamp.where(merchant_id: @merchant.id, status: "pending", code: candidate)
-                   .where("expires_at > ?", Time.current)
-                   .exists?
-      return candidate unless taken
+    rows = active.map do |campaign|
+      pending = campaign.requires_validation?
+      {
+        visit_id:     id,
+        campaign_id:  campaign.id,
+        customer_id:  customer_id,
+        merchant_id:  merchant_id,
+        status:       pending ? "pending" : "confirmed",
+        code:         pending ? code : nil,
+        expires_at:   pending ? expires_at : nil,
+        confirmed_at: pending ? nil : now,
+        created_at:   now
+      }
     end
+
+    Stamp.insert_all!(rows, unique_by: %i[visit_id campaign_id])
   end
+
+  # Convenience accessors used by Customer::StoreController#scan to
+  # build page props. Memoized on the in-memory record after a scan.
+  def confirmed_stamps = stamps.includes(:campaign).where(status: "confirmed")
+  def pending_stamps   = stamps.includes(:campaign).where(status: "pending")
+  def shared_code      = pending_stamps.first&.code
 end
 ```
 
 Notes:
 
-- `Stamp::CODE_TTL = 10.minutes` is declared on `Stamp` per
-  `01-data-model.md`.
+- `Stamp::CodeGenerator::CODE_TTL = 10.minutes` (was `Stamp::CODE_TTL`
+  in earlier drafts; the constant moves alongside the generator that
+  owns code lifetime).
 - `requires_validation?` is the boolean accessor backing
   `campaigns.requires_validation`.
 - Idempotency is delegated to PostgreSQL via the `(visit_id,
   campaign_id)` unique index. `insert_all!` with `unique_by:` translates
   to `ON CONFLICT (visit_id, campaign_id) DO NOTHING`. Two concurrent
-  registrars for the same visit will not double-insert.
-- The result struct is what `StoreController#scan` hands to the page
-  props. Confirmed and pending lists are kept separate so the React
-  page can split them into the two boxes shown in the wireframe.
+  callers materializing stamps for the same visit will not
+  double-insert.
 
-### `app/services/customer/identifier.rb`
+### `Merchant#active_campaigns_at`
+
+Lives on `Merchant`. Unions the two campaign kinds at a given moment:
 
 ```ruby
-module Customer
-  class Identifier
-    Result = Struct.new(:customer, :verification_enqueued, keyword_init: true)
+class Merchant < ApplicationRecord
+  has_many :loyalty_campaigns, class_name: "LoyaltyCampaign"
+  has_many :campaign_merchants
+  has_many :organization_campaigns,
+           through: :campaign_merchants, source: :campaign
 
-    def self.call(...) = new(...).call
+  # Active campaigns at this merchant at `time`, both kinds:
+  # - LoyaltyCampaign: campaigns.merchant_id = id, status='active'
+  # - OrganizationCampaign: joined via campaign_merchants, status='active'
+  #   AND time within [starts_at, ends_at] (or open-ended).
+  def active_campaigns_at(time)
+    org_ids = campaign_merchants.pluck(:campaign_id)
+    Campaign
+      .where(status: "active")
+      .where("(merchant_id = ?) OR (id IN (?))", id, org_ids)
+      .where("starts_at IS NULL OR starts_at <= ?", time)
+      .where("ends_at IS NULL OR ends_at >= ?", time)
+      .to_a
+  end
+end
+```
 
-    def initialize(phone:, lgpd_opted_in:, name: nil)
-      @phone         = phone
-      @lgpd_opted_in = lgpd_opted_in
-      @name          = name
+### `Stamp::CodeGenerator`
+
+A nested PORO under `Stamp`. Lives at `app/models/stamp/code_generator.rb`.
+
+```ruby
+class Stamp
+  class CodeGenerator
+    CODE_TTL = 10.minutes
+
+    def self.call(merchant_id:)
+      new(merchant_id: merchant_id).call
     end
 
+    def initialize(merchant_id:)
+      @merchant_id = merchant_id
+    end
+
+    # Per 01-data-model.md, there is no DB unique on (merchant_id, code)
+    # — pending stamps from one visit share one code by design. The
+    # collision check is across DIFFERENT visits' currently-active
+    # codes at the same merchant.
     def call
-      customer = ::Customer.find_or_initialize_by(phone: ::Customer.normalize_phone(@phone))
-      customer.assign_attributes(
-        lgpd_opted_in_at: @lgpd_opted_in ? Time.current : nil,
-        name:             @name.presence || customer.name
-      )
-      customer.save!
-
-      enqueued = false
-      if customer.verified_at.nil?
-        WhatsAppDispatcher.deliver(customer, template: :verification)
-        enqueued = true
-      end
-
-      Result.new(customer: customer, verification_enqueued: enqueued)
-    rescue ActiveRecord::RecordNotUnique
-      ::Customer.find_by!(phone: ::Customer.normalize_phone(@phone)).then do |c|
-        Result.new(customer: c, verification_enqueued: false)
+      loop do
+        candidate = SecureRandom.random_number(1_000_000).to_s.rjust(6, "0")
+        taken = Stamp.where(merchant_id: @merchant_id, status: "pending", code: candidate)
+                     .where("expires_at > ?", Time.current)
+                     .exists?
+        return candidate unless taken
       end
     end
+  end
+end
+```
+
+This is internal to `Stamp` — it's nested rather than top-level
+because nothing outside the stamp lifecycle needs it.
+
+### `Customer.identify!`
+
+Class method on `Customer`. Lives at `app/models/customer.rb`.
+
+```ruby
+class Customer < ApplicationRecord
+  before_validation :normalize_phone
+
+  validates :phone, presence: true, uniqueness: true
+  validates :lgpd_opted_in_at, presence: true
+
+  # Find-or-create by normalized phone, refresh attributes, and dispatch
+  # a verification message if the customer is not yet verified. Returns
+  # the customer. Race-safe via the unique index on `phone`.
+  def self.identify!(phone:, lgpd_opted_in:, name: nil)
+    normalized = normalize_phone(phone)
+    customer = find_or_initialize_by(phone: normalized)
+    customer.assign_attributes(
+      lgpd_opted_in_at: lgpd_opted_in ? Time.current : customer.lgpd_opted_in_at,
+      name:             name.presence || customer.name
+    )
+    customer.save!
+    customer.dispatch_verification_if_unverified!
+    customer
+  rescue ActiveRecord::RecordNotUnique
+    find_by!(phone: normalized).tap(&:dispatch_verification_if_unverified!)
+  end
+
+  # Enqueues the WhatsApp verification job iff the customer has not yet
+  # confirmed the link. Public so `identify!` can call it on the
+  # `RecordNotUnique` rescue path too.
+  def dispatch_verification_if_unverified!
+    return if verified_at.present?
+    WhatsAppDeliveryJob.perform_later(id, template: :verification)
+  end
+
+  # The signed verification link, used by WhatsAppDeliveryJob.
+  # 30-day TTL per 01-data-model.md.
+  def verification_link
+    token = Rails.application.message_verifier(:customer_verification)
+                 .generate(id, expires_in: 30.days)
+    Rails.application.routes.url_helpers
+         .customer_verification_url(token: token, host: ENV.fetch("APP_HOST"))
+  end
+
+  def self.normalize_phone(raw)
+    Phonelib.parse(raw, "BR").e164.presence || raw
+  end
+
+  private
+
+  def normalize_phone
+    self.phone = self.class.normalize_phone(phone) if phone.present?
   end
 end
 ```
@@ -465,23 +523,19 @@ cookies.signed[:customer_session] = {
 }
 ```
 
-## 8. WhatsApp dispatcher
+## 8. WhatsApp delivery (system boundary as a job)
 
-The provider integration is deferred. The abstraction must ship now so
-the rest of the flow can be tested.
-
-### `app/services/whats_app_dispatcher.rb`
+Third-party API integrations are system boundaries. Per the vanilla-Rails
+approach, **the boundary IS the job**, not a wrapper service that
+forwards to a job. There is no `WhatsAppDispatcher`. Callers enqueue
+the job directly:
 
 ```ruby
-class WhatsAppDispatcher
-  TEMPLATES = %i[verification].freeze
-
-  def self.deliver(customer, template:)
-    raise ArgumentError, "unknown template: #{template}" unless TEMPLATES.include?(template)
-    WhatsAppDeliveryJob.perform_later(customer.id, template.to_s)
-  end
-end
+WhatsAppDeliveryJob.perform_later(customer.id, template: :verification)
 ```
+
+`Customer#dispatch_verification_if_unverified!` (§6) is the single
+caller in this plan.
 
 ### `app/jobs/whats_app_delivery_job.rb`
 
@@ -489,27 +543,19 @@ end
 class WhatsAppDeliveryJob < ApplicationJob
   queue_as :default
 
-  def perform(customer_id, template)
+  TEMPLATES = %i[verification].freeze
+
+  def perform(customer_id, template:)
+    raise ArgumentError, "unknown template: #{template}" unless TEMPLATES.include?(template.to_sym)
+
     customer = Customer.find(customer_id)
-    case template
-    when "verification" then deliver_verification(customer)
-    else raise ArgumentError, "unknown template: #{template}"
-    end
-  end
-
-  private
-
-  def deliver_verification(customer)
-    token = Rails.application.message_verifier(:customer_verification)
-                 .generate(customer.id, expires_in: 30.days)
-    link  = Rails.application.routes.url_helpers
-                 .customer_verification_url(token: token, host: ENV.fetch("APP_HOST"))
+    link     = customer.verification_link
 
     if Rails.env.production?
       raise NotImplementedError,
             "WhatsApp provider not configured. Wire Meta Cloud API / Z-API before shipping to prod."
     else
-      Rails.logger.info("[WhatsAppDispatcher] To #{customer.phone}: verification link #{link}")
+      Rails.logger.info("[WhatsApp] To #{customer.phone}: verification link #{link}")
     end
   end
 end
@@ -527,8 +573,9 @@ Why the explicit `raise NotImplementedError` in production:
   logger stays as the development adapter.
 
 The signed verifier key namespace `:customer_verification` is the one
-spec'd in `01-data-model.md`. The token expiry is 30 days; clicking an
-expired token shows the error variant of `verifications/show.tsx`.
+spec'd in `01-data-model.md`. The token (and link) is generated by
+`Customer#verification_link`; expiry is 30 days; clicking an expired
+token shows the error variant of `verifications/show.tsx`.
 
 `APP_HOST` is the existing Kamal-deployed host env var. In dev it's
 `localhost:3000` (set in `.env` or `bin/dev`).
@@ -711,17 +758,34 @@ types in `camelCase`; never bypass the plugin.
 ### Model tests
 
 - `test/models/customer_test.rb`
-  - normalizes phone via `Phonelib` in `before_validation`.
-  - phone presence + uniqueness.
-  - `lgpd_opted_in_at` presence.
-  - `verified_at` defaults to nil; not user-assignable from
-    `permit(:verified_at)` (mass-assignment guard).
-  - `Customer.normalize_phone("...")` class method round-trips a few
-    Brazil and Uruguay numbers correctly.
+  - **Validations / normalization**
+    - normalizes phone via `Phonelib` in `before_validation`.
+    - phone presence + uniqueness.
+    - `lgpd_opted_in_at` presence.
+    - `verified_at` defaults to nil; not user-assignable from
+      `permit(:verified_at)` (mass-assignment guard).
+    - `Customer.normalize_phone("...")` class method round-trips a few
+      Brazil and Uruguay numbers correctly.
+  - **`Customer.identify!`**
+    - First call creates the customer, sets `lgpd_opted_in_at`,
+      enqueues the `WhatsAppDeliveryJob` (assert with
+      `assert_enqueued_with(job: WhatsAppDeliveryJob, args: [customer.id, { template: :verification }])`).
+    - Second call with the same phone updates the existing row's
+      `lgpd_opted_in_at` / `name`, does NOT create a duplicate, does
+      NOT enqueue a second job if `verified_at` is set.
+    - Same as above but `verified_at` nil → re-enqueues.
+    - Race: simulating `RecordNotUnique` (e.g. by stubbing `save!`)
+      falls through to `find_by!` and still triggers
+      `dispatch_verification_if_unverified!`.
+  - **`Customer#verification_link`**
+    - Generates a URL containing a token verifiable by
+      `Rails.application.message_verifier(:customer_verification)`.
+    - Token decodes to the customer's id.
+    - Token expires in 30 days (`travel` past 30.days → verifier raises
+      `InvalidSignature`).
 
-### Service tests
-
-- `test/services/scan_registrar_test.rb`
+- `test/models/visit_test.rb` — **`Visit.create_from_scan!` and
+  `#materialize_stamps!`**
   - With one `LoyaltyCampaign` (active, `requires_validation: false`):
     creates one Visit, one confirmed Stamp, no code.
   - With one `OrganizationCampaign` (cumulative,
@@ -732,22 +796,40 @@ types in `camelCase`; never bypass the plugin.
     6-digit code and `expires_at = now + 10.minutes`.
   - With mixed validated + non-validated: creates one pending + one
     confirmed; pending row carries the shared code; confirmed row has
-    null code.
-  - **Idempotency**: calling `ScanRegistrar.call` twice in the same
-    transaction with the same visit (simulated by patching `Visit.create!`)
-    inserts at most one stamp per (visit, campaign).
+    null code; `visit.shared_code` matches the pending row's code.
+  - **Idempotency**: calling `visit.materialize_stamps!` a second time
+    (e.g. via a retried job or duplicate request) inserts at most one
+    stamp per (visit, campaign) — count unchanged.
   - Inactive campaigns (status != active) at the merchant are skipped.
   - Campaigns at OTHER merchants are skipped.
+  - Campaigns whose window does not contain `Time.current` are skipped
+    (covers `Merchant#active_campaigns_at`).
 
-- `test/services/customer/identifier_test.rb`
-  - First call creates the customer, sets `lgpd_opted_in_at`, enqueues
-    the `WhatsAppDeliveryJob`.
-  - Second call with the same phone updates the existing row's
-    `lgpd_opted_in_at` / `name`, does NOT create a duplicate, does NOT
-    enqueue a second job if `verified_at` is set.
-  - Same as above but `verified_at` nil → re-enqueues.
-  - Race: two simultaneous calls with the same phone result in one row
-    (rescue `RecordNotUnique`).
+- `test/models/merchant_test.rb` — **`#active_campaigns_at(time)`**
+  - Returns active loyalty campaigns belonging to the merchant.
+  - Returns active organization campaigns enrolled via
+    `campaign_merchants`.
+  - Excludes campaigns whose status is `draft` / `archived`.
+  - Excludes campaigns at other merchants.
+  - Excludes organization campaigns outside their `[starts_at, ends_at]`
+    window at `time`.
+
+- `test/models/stamp/code_generator_test.rb`
+  - Returns a 6-digit zero-padded string.
+  - Avoids collision with another visit's currently-active pending
+    code at the same merchant (insert a fixture pending stamp; assert
+    the generator does not return the same code).
+  - Allows reuse of an expired code (insert a pending stamp with
+    `expires_at < now`; the generator may return that code).
+
+### Job tests
+
+- `test/jobs/whats_app_delivery_job_test.rb`
+  - `perform_now(customer.id, template: :verification)` in dev/test
+    logs to `Rails.logger` containing the customer's phone and the
+    verification URL.
+  - In `Rails.env.production?` (stub), raises `NotImplementedError`.
+  - Unknown template raises `ArgumentError`.
 
 ### Controller tests
 
@@ -761,7 +843,7 @@ types in `camelCase`; never bypass the plugin.
       `cookies.signed[:customer_session]`).
     - Visit + Stamps created (count assertions).
     - `WhatsAppDeliveryJob` enqueued (use
-      `assert_enqueued_with(job: WhatsAppDeliveryJob)`).
+      `assert_enqueued_with(job: WhatsAppDeliveryJob, args: [customer.id, { template: :verification }])`).
     - Response props include `mode: "result"`, the right
       confirmed/pending lists, and the shared code (if any).
   - `POST /s/:slug` with no cookie + missing LGPD checkbox → 422,
@@ -820,7 +902,7 @@ This is the smoke test for the Pasaporte digitized pilot.
 5. **WhatsApp job**:
    - `bin/rails runner 'puts SolidQueue::Job.where(class_name:
      "WhatsAppDeliveryJob").count'` → 1.
-   - Tail `log/development.log` for `[WhatsAppDispatcher]` — copy the
+   - Tail `log/development.log` for `[WhatsApp]` — copy the
      verification URL.
 6. **Click verify**: paste the URL into the same browser (or a
    different one — should not matter).
@@ -921,11 +1003,17 @@ A fresh engineer should be able to verify these without reading prose:
       `Organizations::BaseController` or `Merchants::BaseController`.
 - [ ] `Customer.before_validation :normalize_phone` runs Phonelib;
       DB has unique index on `customers.phone`.
-- [ ] `ScanRegistrar` calls `Stamp.insert_all!(rows, unique_by:
-      %i[visit_id campaign_id])` — not `Stamp.create!` in a loop.
-- [ ] `ScanRegistrar` writes ONE shared `code` to all pending stamps
-      from a single visit; non-validated stamps from the same visit have
-      `code: NULL`.
+- [ ] No `app/services/` directory; no `ScanRegistrar`,
+      `Customer::Identifier`, or `WhatsAppDispatcher` class.
+- [ ] `Visit#materialize_stamps!` calls `Stamp.insert_all!(rows,
+      unique_by: %i[visit_id campaign_id])` — not `Stamp.create!` in a
+      loop.
+- [ ] `Visit#materialize_stamps!` writes ONE shared `code` to all
+      pending stamps from a single visit; non-validated stamps from the
+      same visit have `code: NULL`.
+- [ ] `Customer::StoreController#scan` calls `Customer.identify!(...)`
+      and `Visit.create_from_scan!(customer:, merchant:)` directly — no
+      service indirection.
 - [ ] `cookies.signed[:customer_session]` is set with `httponly: true`,
       `secure: Rails.env.production?`, `same_site: :lax`, 90-day TTL.
 - [ ] `WhatsAppDeliveryJob` raises `NotImplementedError` in production

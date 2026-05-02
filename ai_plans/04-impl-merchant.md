@@ -216,7 +216,7 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
       redirect_to merchants_loyalty_program_path, notice: "Programa ativado."
     when "disable"
       reset = ActiveModel::Type::Boolean.new.cast(params[:reset])
-      Merchants::DisableLoyalty.call(loyalty_campaign: @loyalty, reset: reset)
+      @loyalty.disable!(reset: reset)
       redirect_to merchants_loyalty_program_path, notice: "Programa desativado."
     else
       head :bad_request
@@ -244,6 +244,10 @@ end
 Activation guard: `LoyaltyCampaign#activate!` overrides the base
 `activate!` to add a `prizes.exists?` check. Add it in the model rather
 than the controller — see §6.
+
+The disable path calls `LoyaltyCampaign#disable!(reset:)` directly per
+[`./01-data-model.md`](./01-data-model.md). No wrapper class — the
+controller speaks to the model.
 
 ### 5.3 `Merchants::LoyaltyProgram::PrizesController`
 
@@ -380,18 +384,25 @@ class Merchants::ValidationsController < Merchants::BaseController
 
   def create
     code = params.require(:code).to_s.strip
-    result = Merchants::ValidateStamps.call(merchant: current_merchant, code: code)
+    confirmed = current_merchant.confirm_stamps(code: code)
 
-    if result.success?
+    if confirmed.any?
+      visit    = confirmed.first.visit
+      customer = confirmed.first.customer
+      validated_campaign_ids = confirmed.map(&:campaign_id).uniq
+
       render inertia: "merchants/validations/new", props: {
         success: {
-          customer: serialize_customer(result.customer),
-          campaign_progress: result.campaign_progress
+          customer: serialize_customer(customer),
+          campaign_progress: current_merchant.campaign_progress_for(
+            customer: customer, visit: visit
+          ),
+          validated_campaign_ids: validated_campaign_ids
         }
       }
     else
       redirect_to new_merchants_validation_path,
-                  inertia: { errors: { code: result.error } }
+                  inertia: { errors: { code: "Código inválido ou expirado." } }
     end
   end
 end
@@ -411,9 +422,11 @@ Path: `app/controllers/merchants/redemptions_controller.rb`.
 - `phone` only → look up customer; if found, render the same page with
   a `preview` prop containing balance + claimable prize list. If not
   found, redirect back with an error.
-- `phone` + `loyalty_prize_id` → confirm: re-check balance via
-  `Merchants::IssueRedemption.call`, write the row, redirect to
-  `merchants_root_path` with a success notice.
+- `phone` + `loyalty_prize_id` → confirm: call
+  `loyalty_campaign.redeem!(customer:, prize:, by: current_user)`,
+  which re-checks balance under transaction and writes the row.
+  Redirect to `merchants_root_path` with a success notice; rescue
+  `ActiveRecord::RecordInvalid` for the friendly error path.
 
 ```ruby
 class Merchants::RedemptionsController < Merchants::BaseController
@@ -466,20 +479,14 @@ class Merchants::RedemptionsController < Merchants::BaseController
   end
 
   def confirm(customer)
-    prize = current_merchant.loyalty_campaign.prizes.find(params[:loyalty_prize_id])
-    result = Merchants::IssueRedemption.call(
-      customer: customer,
-      merchant: current_merchant,
-      prize: prize,
-      merchant_user: current_user
-    )
+    loyalty = current_merchant.loyalty_campaign
+    prize   = loyalty.prizes.find(params[:loyalty_prize_id])
 
-    if result.success?
-      redirect_to merchants_root_path, notice: "Resgate confirmado."
-    else
-      redirect_to new_merchants_redemption_path,
-                  inertia: { errors: { base: result.error } }
-    end
+    loyalty.redeem!(customer: customer, prize: prize, by: current_user)
+    redirect_to merchants_root_path, notice: "Resgate confirmado."
+  rescue ActiveRecord::RecordInvalid => e
+    redirect_to new_merchants_redemption_path,
+                inertia: { errors: { base: e.record.errors.full_messages.to_sentence } }
   end
 
   def reject(msg)
@@ -492,65 +499,47 @@ end
 concern) since both `validations` and `redemptions` use it. Returns
 `{ id, name, phone }` (the phone IS the WhatsApp number; one field).
 
-## 6. Service objects
+## 6. Model methods
 
-Place under `app/services/merchants/`. Each exposes a class-level
-`.call(...)` returning a result struct with `success?`, `error`, and
-domain-specific accessors.
+No `app/services/`. Multi-step operations are model methods on the
+record they operate on, following the project's vanilla-Rails posture
+(see [Vanilla Rails is plenty](https://dev.37signals.com/vanilla-rails-is-plenty/)).
+Controllers call these directly; failures surface as
+`ActiveRecord::RecordInvalid` and are rescued at the controller edge.
 
-### 6.1 `Merchants::ValidateStamps`
+### 6.1 `Merchant#confirm_stamps(code:)`
 
-Atomic flip of all pending sibling stamps from one visit.
+Atomic flip of all pending sibling stamps from one visit. **Choice:
+instance method on `Merchant`** rather than class method on `Stamp`,
+because every call is scoped to the current merchant and the merchant
+*is* the natural subject of the verb ("merchant confirms code"). The
+controller already has `current_merchant`, so `current_merchant
+.confirm_stamps(code: …)` reads as a single English sentence and
+keeps the merchant-scope filter implicit.
 
 ```ruby
-module Merchants
-  class ValidateStamps
-    Result = Struct.new(:success?, :error, :customer, :campaign_progress, keyword_init: true)
+class Merchant < ApplicationRecord
+  # Returns the array of just-confirmed Stamp records (empty if no
+  # match). Atomic via row lock + update_all. All sibling pending
+  # stamps from the same visit share one code, so they flip together.
+  def confirm_stamps(code:)
+    Stamp.transaction do
+      pending = stamps
+        .where(status: "pending", code: code)
+        .where("expires_at > ?", Time.current)
+        .lock("FOR UPDATE")
+        .to_a
 
-    def self.call(merchant:, code:)
-      ActiveRecord::Base.transaction do
-        scope = merchant.stamps
-                        .where(status: "pending", code: code)
-                        .where("expires_at > ?", Time.current)
-                        .lock("FOR UPDATE")
+      return [] if pending.empty?
 
-        stamps = scope.to_a
-        return Result.new(success?: false, error: "Código inválido ou expirado.") if stamps.empty?
+      Stamp.where(id: pending.map(&:id)).update_all(
+        status: "confirmed",
+        confirmed_at: Time.current,
+        code: nil,
+        expires_at: nil
+      )
 
-        # Sanity: all siblings share one (visit_id, customer_id).
-        visit    = stamps.first.visit
-        customer = stamps.first.customer
-
-        scope.update_all(
-          status: "confirmed",
-          confirmed_at: Time.current,
-          code: nil,
-          expires_at: nil
-        )
-
-        Result.new(
-          success?: true,
-          customer: customer,
-          campaign_progress: build_progress(merchant, customer, visit)
-        )
-      end
-    end
-
-    # All active campaigns at the merchant the customer touched in this visit
-    # (not just the validated ones) — gives the cashier the full picture.
-    def self.build_progress(merchant, customer, visit)
-      campaigns = visit.stamps.includes(:campaign).map(&:campaign).uniq
-      campaigns.select { |c| c.status == "active" }.map do |c|
-        case c
-        when LoyaltyCampaign
-          { kind: "loyalty", id: c.id, name: c.name,
-            balance: c.balance_for(customer) }
-        when OrganizationCampaign
-          { kind: "organization", id: c.id, name: c.name,
-            entries: c.entries_for(customer),
-            entry_policy: c.entry_policy }
-        end
-      end.compact
+      Stamp.where(id: pending.map(&:id)).to_a
     end
   end
 end
@@ -560,59 +549,89 @@ end
 > double-taps the button) would otherwise race the `update_all`. The
 > row lock is held until the transaction commits.
 
-### 6.2 `Merchants::IssueRedemption`
+### 6.2 `Merchant#campaign_progress_for(customer:, visit:)`
+
+The validation success page needs progress lines for **all** active
+campaigns at this merchant the customer touched in the originating
+visit — not just the validated ones. That aggregation is a query, not a
+mutation, and it belongs on the merchant because it answers the
+question "what does *this merchant* now show the cashier about *this
+customer*?". Keep it next to `confirm_stamps`.
 
 ```ruby
-module Merchants
-  class IssueRedemption
-    Result = Struct.new(:success?, :error, :redemption, keyword_init: true)
+class Merchant < ApplicationRecord
+  def campaign_progress_for(customer:, visit:)
+    visit.stamps.includes(:campaign).map(&:campaign).uniq
+      .select { |c| c.status == "active" }
+      .map { |c| progress_line_for(c, customer) }
+      .compact
+  end
 
-    def self.call(customer:, merchant:, prize:, merchant_user:)
-      campaign = prize.campaign
-      return Result.new(success?: false, error: "Prêmio inválido.") unless
-        campaign.is_a?(LoyaltyCampaign) && campaign.merchant_id == merchant.id
+  private
 
-      ActiveRecord::Base.transaction do
-        # Re-check live balance under transaction; no denormalization to drift.
-        balance = campaign.balance_for(customer)
-        if balance < prize.threshold
-          return Result.new(success?: false,
-            error: "Saldo insuficiente (#{balance} de #{prize.threshold}).")
-        end
+  def progress_line_for(campaign, customer)
+    case campaign
+    when LoyaltyCampaign
+      { kind: "loyalty", id: campaign.id, name: campaign.name,
+        balance: campaign.balance_for(customer) }
+    when OrganizationCampaign
+      { kind: "organization", id: campaign.id, name: campaign.name,
+        entries: campaign.entries_for(customer),
+        entry_policy: campaign.entry_policy }
+    end
+  end
+end
+```
 
-        redemption = Redemption.create!(
-          customer: customer,
-          campaign: campaign,
-          prize: prize,
-          merchant: merchant,
-          merchant_user: merchant_user,
-          threshold_snapshot: prize.threshold
-        )
-        Result.new(success?: true, redemption: redemption)
+`balance_for` and `entries_for` are model APIs already specified in
+[`./01-data-model.md`](./01-data-model.md); this method composes them.
+
+### 6.3 `LoyaltyCampaign#redeem!(customer:, prize:, by:)`
+
+Issues a redemption. Re-checks balance under transaction so a stale
+preview can't issue an over-balance redemption. Raises
+`ActiveRecord::RecordInvalid` on failure so the controller can use a
+single rescue path — matching how Rails surfaces validation errors
+elsewhere in the project.
+
+```ruby
+class LoyaltyCampaign < Campaign
+  # Raises ActiveRecord::RecordInvalid on insufficient balance or wrong
+  # campaign/merchant pairing. Returns the persisted Redemption on success.
+  def redeem!(customer:, prize:, by:)
+    transaction do
+      unless prize.campaign_id == id
+        errors.add(:base, "Prêmio inválido.")
+        raise ActiveRecord::RecordInvalid.new(self)
       end
+
+      balance = balance_for(customer)
+      if balance < prize.threshold
+        errors.add(:base, "Saldo insuficiente (#{balance} de #{prize.threshold}).")
+        raise ActiveRecord::RecordInvalid.new(self)
+      end
+
+      redemptions.create!(
+        customer: customer,
+        prize: prize,
+        merchant: merchant,
+        merchant_user: by,
+        threshold_snapshot: prize.threshold
+      )
     end
   end
 end
 ```
 
-### 6.3 `Merchants::DisableLoyalty`
+The controller (§5.6) calls `loyalty.redeem!(...)` and rescues
+`ActiveRecord::RecordInvalid` for the friendly-error path.
 
-Thin wrapper over `LoyaltyCampaign#disable!(reset:)` (data model §
-`LoyaltyCampaign`). Keeps the controller decoupled from the model
-method signature and gives a single place to add audit logging later.
+### 6.4 Disable
 
-```ruby
-module Merchants
-  class DisableLoyalty
-    def self.call(loyalty_campaign:, reset:)
-      loyalty_campaign.disable!(reset: reset)
-    end
-  end
-end
-```
-
-> Note: If we later need to clear pending stamps on disable, this is
-> the place. For v1, pending stamps are left to expire on their own.
+No new method here. `LoyaltyCampaign#disable!(reset:)` already exists
+per [`./01-data-model.md`](./01-data-model.md) and is called directly
+by the controller in §5.2. If audit logging is later needed, add it
+to the model method (or to a callback / concern) — not to a wrapper.
 
 ## 7. Inertia pages
 
@@ -696,11 +715,14 @@ Two visual states driven by a `success` prop:
   that didn't require validation (so they were already confirmed at
   scan time).
 
-  Determining "was this line newly confirmed by this code?" requires
-  the service to return both lists. Extend the result struct:
-  `campaign_progress` and `validated_campaign_ids: [int]`. The page
-  marks lines whose `id` is in `validatedCampaignIds` with a
-  checkmark, others with a muted "(já confirmado)" tag.
+  Determining "was this line newly confirmed by this code?" comes from
+  two pieces the controller already has after calling
+  `current_merchant.confirm_stamps(code:)`: the returned array of
+  just-confirmed `Stamp` records (their `campaign_id`s become
+  `validated_campaign_ids`), and `Merchant#campaign_progress_for(...)`
+  for the full active-campaign list. The page marks lines whose `id`
+  is in `validatedCampaignIds` with a checkmark, others with a muted
+  "(já confirmado)" tag.
 
 A "Validar próximo" button resets the page state and refocuses the
 input.
@@ -839,20 +861,30 @@ Required tests:
     `threshold_snapshot` and `merchant_user_id`.
   - prize from another merchant's loyalty campaign → 404.
 
-### 10.2 Service-object unit tests
+### 10.2 Model unit tests
 
-`test/services/merchants/`:
+`test/models/`:
 
-- `ValidateStampsTest` — concurrency: simulate two threads calling
-  `.call` with the same code; only one flips. (Use a wrapped
+- `MerchantTest#test_confirm_stamps_*` — happy path flips all sibling
+  pending stamps to `confirmed`, clears `code` + `expires_at`, sets
+  `confirmed_at`; expired stamps are not flipped; cross-merchant code
+  returns `[]`; concurrency: simulate two threads calling
+  `confirm_stamps` with the same code; only one flips. (Use a wrapped
   transaction + `Thread.new` with explicit DB connection checkout.
-  Skipping concurrency test is OK if Minitest threading proves flaky;
-  cover the lock at the SQL level via `assert_match /FOR UPDATE/,
-  query`.)
-- `IssueRedemptionTest` — re-check after creation: artificially
-  decrement balance between preview and confirm and assert rejection.
-- `DisableLoyaltyTest` — `reset: true` sets `effective_from_at` to
-  ~now; `reset: false` leaves it.
+  Skipping the threaded variant is OK if Minitest threading proves
+  flaky; cover the lock at the SQL level via `assert_match /FOR
+  UPDATE/, query`.)
+- `MerchantTest#test_campaign_progress_for_*` — returns lines for all
+  active campaigns the customer touched in the visit (loyalty +
+  organization), skips campaigns with `status != "active"`.
+- `LoyaltyCampaignTest#test_redeem!_*` — happy path writes
+  `Redemption` with `threshold_snapshot` and `merchant_user_id`;
+  insufficient balance raises `ActiveRecord::RecordInvalid` and
+  writes nothing; prize from another campaign raises and writes
+  nothing; race-safety: artificially decrement balance between
+  preview and confirm and assert the second `redeem!` raises.
+- `LoyaltyCampaignTest#test_disable!_*` — `reset: true` sets
+  `effective_from_at` to ~now; `reset: false` leaves it nil.
 
 ### 10.3 System tests
 
@@ -984,8 +1016,9 @@ grátis`).
   now).distinct.count(:code)`) — prevents inflating the number when
   a single visit has N siblings.
 - **Auditing on disable + reset.** Future: write to a
-  `loyalty_program_events` table in `Merchants::DisableLoyalty`. v1
-  ships with model-level `update!` and Rails logs only.
+  `loyalty_program_events` table from inside
+  `LoyaltyCampaign#disable!` (callback or inline). v1 ships with
+  model-level `update!` and Rails logs only.
 - **Merchant team management on the merchant surface.** Hard to gate
   in Clerk's invitation API without role concepts. Recommended Phase
   C plan: add a single "Membros" page under `/merchants` that lists

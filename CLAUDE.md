@@ -90,3 +90,39 @@ Four logical Postgres databases in production (single primary in dev/test): `pri
     ```
 
   → `Organizations::Merchants::InvitationsController` at `app/controllers/organizations/merchants/invitations_controller.rb`. Don't flatten nested resources into the parent namespace (e.g. `Organizations::InvitationsController`); the module nesting must mirror the URL nesting.
+
+- **RESTful controllers only — no custom action verbs**: every controller action is one of `index`, `new`, `create`, `show`, `edit`, `update`, `destroy`. State transitions, side-effecting operations, and "verbs" on a parent resource are modeled as their own sub-resources whose `#create` performs the action. This keeps controllers strictly CRUD, sidesteps Ruby keyword collisions (`def end`), and reads more clearly in the route table.
+
+    ```ruby
+    # Wrong: custom verbs as member actions on the parent
+    resources :campaigns do
+      member do
+        post :activate
+        post :end, action: :end_campaign  # `end` is reserved in Ruby
+      end
+    end
+    ```
+
+    ```ruby
+    # Right: each transition is its own sub-resource
+    resources :campaigns do
+      resource :activation,  only: :create, module: :campaigns
+      resource :termination, only: :create, module: :campaigns
+    end
+    ```
+
+    → `Organizations::Campaigns::ActivationsController#create` and `Organizations::Campaigns::TerminationsController#create`. The "noun" for the resource is whatever the operation produces (an activation event, a termination event, an invitation, a redemption, etc.).
+
+- **Vanilla Rails — no service objects**: domain logic lives on rich models, not in `app/services/`. Follow [Vanilla Rails is plenty](https://dev.37signals.com/vanilla-rails-is-plenty/) and [Good concerns](https://dev.37signals.com/good-concerns/). The point of an architectural decision is to make the next change easier; reaching for `Foo::Bar.call(...)` for every multi-step operation flattens the domain into procedures and produces anemic models.
+
+    - **Controllers call model APIs directly.** Simple CRUD: `current_organization.campaigns.create!(params)`. Complex operations: `@campaign.activate!`, `@stamp.confirm_pending_for(merchant: …, code: …)`, `Visit.create_from_scan!(customer:, merchant:)`. The model owns orchestration; the controller is HTTP plumbing.
+
+    - **Multi-step writes belong on the model.** Wrap in a transaction inside the model. Validation contexts (`validate :foo, on: :activation` then `valid?(:activation)`) are the right tool for state-transition guards. Use `accepts_nested_attributes_for` and `has_many :through` collection writers (`campaign.merchant_ids = [...]`) before reaching for anything custom.
+
+    - **Concerns are good when they capture a real "acts as / has trait" axis** (`Sluggable`, `Activatable`, `Confirmable`, `Mergeable`). They're bad when used as arbitrary file-splits to "tidy up" a fat model — that's still procedural code, just relocated. A good concern reflects a domain concept; a bad one is a dumping ground.
+
+    - **PORO helpers under the model namespace are fine** when something genuinely warrants its own class but is internal to one model — e.g. `Stamp::CodeGenerator`, `Recording::Copier`. The public API stays on the model (`stamp.confirm_pending_for(...)`); the helper is a private collaborator. Never expose helpers as the call site.
+
+    - **System-boundary integrations are jobs or `lib/` adapters**, not services. `WhatsAppDeliveryJob` over `WhatsAppDispatcher`. The job IS the boundary; a "dispatcher service" wrapping a job is one indirection too many.
+
+    Don't introduce `app/services/`. If you find yourself drafting `Foo::Bar.call(...)`, rephrase as `foo.bar(...)` and put it on the model. Almost every "service" we've considered turned out to be a method that wanted to live on a model.

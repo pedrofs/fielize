@@ -69,17 +69,21 @@ When this plan is delivered:
 - [ ] All other A2 flows continue to work unchanged; merchant `destroy`
       is reviewed against the data-model rule "loyalty deleted; unlinked
       from active org campaigns; visits/stamps preserved" (A2.5).
-- [ ] `Organizations::CampaignsController` exists with full CRUD plus
-      `activate` and `end` member actions (A3.1–A3.6).
+- [ ] `Organizations::CampaignsController` exists with full CRUD only;
+      activation and termination live as their own
+      `Organizations::Campaigns::ActivationsController#create` and
+      `Organizations::Campaigns::TerminationsController#create`
+      sub-resources (A3.1–A3.6).
 - [ ] Inertia pages under `app/frontend/pages/organizations/campaigns/`
       cover `index`, `new`, `edit`, `show` and match the A3 wireframes
       including the conditional `entry_policy` form (cumulative shows a
       threshold column on prizes; simple hides threshold and exposes
       `day_cap`).
 - [ ] Sidebar gains a "Campanhas" link gated on `isOrganizationUser`.
-- [ ] Two service objects — `Organizations::Campaigns::Sync` and
-      `Organizations::Campaigns::Activate` — encapsulate the multi-step
-      writes and the activation guard.
+- [ ] Multi-step writes and activation guards live as model methods on
+      `OrganizationCampaign` (nested-attributes for prizes, an
+      `enroll_merchants` helper for the "no removal while active" rule,
+      and validation contexts driving `activate!`). No `app/services/`.
 - [ ] Minitest controller + system coverage for the activation guard,
       merchant-removal-blocked-while-active rule, and the
       cumulative-vs-simple form behaviour.
@@ -125,30 +129,34 @@ namespace :organizations do
   end
 
   resources :campaigns do
-    member do
-      post :activate
-      post :end, action: :end_campaign  # `end` is reserved in Ruby; alias the action name
-    end
+    # State transitions modeled as their own sub-resources, RESTfully.
+    # See "RESTful controllers only" in CLAUDE.md.
+    resource :activation,  only: :create, module: :campaigns
+    resource :termination, only: :create, module: :campaigns
   end
 end
 ```
 
-The `action: :end_campaign` alias avoids defining `def end` (a Ruby
-keyword) on the controller. The URL stays `/organizations/campaigns/:id/end`.
-Helper becomes `end_organizations_campaign_path(id)`.
+Activate and end-campaign transitions live as their own
+`Organizations::Campaigns::ActivationsController` and
+`Organizations::Campaigns::TerminationsController` (per the
+nested-module convention), each exposing only `#create`. This avoids
+custom action verbs on `Organizations::CampaignsController`, keeps the
+parent controller strictly CRUD, and sidesteps the `def end` Ruby
+keyword problem.
 
 Resulting paths:
 
 ```
-GET    /organizations/campaigns                  → index
-GET    /organizations/campaigns/new              → new
-POST   /organizations/campaigns                  → create
-GET    /organizations/campaigns/:id              → show
-GET    /organizations/campaigns/:id/edit         → edit
-PATCH  /organizations/campaigns/:id              → update
-DELETE /organizations/campaigns/:id              → destroy
-POST   /organizations/campaigns/:id/activate     → activate
-POST   /organizations/campaigns/:id/end          → end_campaign
+GET    /organizations/campaigns                       → CampaignsController#index
+GET    /organizations/campaigns/new                   → CampaignsController#new
+POST   /organizations/campaigns                       → CampaignsController#create
+GET    /organizations/campaigns/:id                   → CampaignsController#show
+GET    /organizations/campaigns/:id/edit              → CampaignsController#edit
+PATCH  /organizations/campaigns/:id                   → CampaignsController#update
+DELETE /organizations/campaigns/:id                   → CampaignsController#destroy
+POST   /organizations/campaigns/:campaign_id/activation  → Campaigns::ActivationsController#create
+POST   /organizations/campaigns/:campaign_id/termination → Campaigns::TerminationsController#create
 ```
 
 `destroy` is allowed only when `status: 'draft'`. Active or ended
@@ -252,11 +260,9 @@ owns the schema; this plan owns the AR associations on the merchant
 model):
 
 ```ruby
-has_one :loyalty_campaign, class_name: "LoyaltyCampaign"
+has_one :loyalty_campaign
 has_many :campaign_merchants, dependent: :destroy
-has_many :organization_campaigns, through: :campaign_merchants,
-                                  source: :campaign,
-                                  class_name: "OrganizationCampaign"
+has_many :organization_campaigns, through: :campaign_merchants, source: :campaign
 ```
 
 `destroy` action behaviour for A2.5:
@@ -286,13 +292,25 @@ realistic action for an established merchant is "remove from active
 campaigns by ending them".
 
 ```ruby
+# Controller
 def destroy
-  if @merchant.visits.exists? || @merchant.active_campaign_memberships.exists?
-    return redirect_to organizations_merchants_path,
-      alert: "Cannot delete a merchant with visit history or active campaign membership."
+  if @merchant.destroy
+    redirect_to organizations_merchants_path, notice: "Merchant deleted."
+  else
+    redirect_to organizations_merchants_path, alert: "Cannot delete a merchant with visit history or active campaign membership."
   end
-  @merchant.destroy
-  redirect_to organizations_merchants_path, notice: "Merchant deleted."
+end
+
+# Merchant model
+before_destroy :check_for_visits_and_active_campaigns
+
+private
+
+def check_for_visits_and_active_campaigns
+  if visits.exists? || active_campaign_memberships.exists?
+    errors.add(:base, "Cannot delete a merchant with visit history or active campaign membership.")
+    throw(:abort)
+  end
 end
 ```
 
@@ -308,14 +326,14 @@ No changes. Already covers A2.6.
 # frozen_string_literal: true
 
 class Organizations::CampaignsController < Organizations::BaseController
-  before_action :set_campaign, only: %i[show edit update destroy activate end_campaign]
+  before_action :set_campaign, only: %i[show edit update destroy]
 
   with_breadcrumb label: "Campanhas", path: -> { organizations_campaigns_path }
 
   def index
     set_title "Campanhas"
 
-    scope = current_organization.campaigns.where(type: "OrganizationCampaign")
+    scope = current_organization.organization_campaigns
     scope = scope.where(status: params[:status]) if params[:status].present?
 
     render inertia: {
@@ -342,19 +360,13 @@ class Organizations::CampaignsController < Organizations::BaseController
   end
 
   def create
-    campaign = current_organization.campaigns.new(type: "OrganizationCampaign")
+    @campaign = current_organization.organization_campaigns.build
+    @campaign.assign_attributes(campaign_params)
 
-    result = Organizations::Campaigns::Sync.call(
-      campaign: campaign,
-      attributes: campaign_params,
-      merchant_ids: merchant_ids_param,
-      prizes: prizes_param
-    )
-
-    if result.success?
-      redirect_to organizations_campaign_path(result.campaign), notice: "Campanha criada."
+    if @campaign.save
+      redirect_to organizations_campaign_path(@campaign), notice: "Campanha criada."
     else
-      redirect_to new_organizations_campaign_path, inertia: { errors: result.errors }
+      redirect_to new_organizations_campaign_path, inertia: { errors: @campaign.errors }
     end
   end
 
@@ -370,41 +382,23 @@ class Organizations::CampaignsController < Organizations::BaseController
   end
 
   def update
-    result = Organizations::Campaigns::Sync.call(
-      campaign: @campaign,
-      attributes: campaign_params,
-      merchant_ids: merchant_ids_param,
-      prizes: prizes_param
-    )
+    @campaign.assign_attributes(campaign_params)
 
-    if result.success?
+    if @campaign.save
       redirect_to organizations_campaign_path(@campaign), notice: "Campanha atualizada."
     else
-      redirect_to edit_organizations_campaign_path(@campaign), inertia: { errors: result.errors }
+      redirect_to edit_organizations_campaign_path(@campaign), inertia: { errors: @campaign.errors }
     end
   end
 
   def destroy
+    # This check should actually me done in the before_destroy callback on the model
     unless @campaign.draft?
       return redirect_to organizations_campaigns_path,
         alert: "Apenas campanhas em rascunho podem ser excluídas."
     end
     @campaign.destroy
     redirect_to organizations_campaigns_path, notice: "Campanha excluída."
-  end
-
-  def activate
-    result = Organizations::Campaigns::Activate.call(@campaign)
-    if result.success?
-      redirect_to organizations_campaign_path(@campaign), notice: "Campanha ativada."
-    else
-      redirect_to organizations_campaign_path(@campaign), inertia: { errors: result.errors }
-    end
-  end
-
-  def end_campaign
-    @campaign.end!
-    redirect_to organizations_campaign_path(@campaign), notice: "Campanha encerrada."
   end
 
   private
@@ -424,19 +418,11 @@ class Organizations::CampaignsController < Organizations::BaseController
         :ends_at,
         :entry_policy,
         :requires_validation,
-        :day_cap
+        :day_cap,
+        { merchant_ids: [],
+          prizes_attributes: [[:id, :name, :threshold, :position, :_destroy]] }
       ]
     )
-  end
-
-  def merchant_ids_param
-    Array(params.dig(:campaign, :merchant_ids)).map(&:to_i)
-  end
-
-  def prizes_param
-    Array(params.dig(:campaign, :prizes_attributes)).map do |p|
-      p.permit(:id, :name, :threshold, :position, :_destroy).to_h
-    end
   end
 
   def blank_campaign_payload
@@ -490,13 +476,18 @@ end
 
 Notes on params:
 
-- We're not using `accepts_nested_attributes_for` directly. The
-  `Organizations::Campaigns::Sync` service handles prize create/update/
-  destroy diffing, which keeps the controller free of nested-AR
-  semantics and lets us enforce the "no destroy after first stamp"
-  rule in one place.
-- `merchant_ids` is permitted as an array of ints, fed straight into
-  the sync service.
+- Prize create/update/destroy diffing is handled by Rails'
+  `accepts_nested_attributes_for :prizes, allow_destroy: true` on
+  `OrganizationCampaign` (see §6). The controller does
+  `assign_attributes` + `save` and lets Active Record do the work.
+- `merchant_ids` is permitted as an array of ints; the existing
+  `has_many :merchants, through: :campaign_merchants` association
+  natively supports `campaign.merchant_ids = [...]`. The "no removal
+  while active" rule lives on the model, not in the controller.
+- The "no prize destroy after first stamp" rule is enforced as a
+  model-level `before_destroy` on `Prize` (or via a validation on
+  the parent during nested-attributes processing). Either way, the
+  controller is unchanged.
 
 Error handling: every failure path goes back to the originating page
 with `inertia: { errors: ... }`. This matches the existing
@@ -507,157 +498,204 @@ Title/breadcrumb: class-level `with_breadcrumb` for the persistent
 "Campanhas" crumb; per-action `set_title` + `add_breadcrumb` for the
 detail crumbs.
 
-## 6. Service objects
+### 5.5 `Organizations::Campaigns::ActivationsController` — new
 
-Both go under `app/services/organizations/campaigns/`. Each exposes a
-`.call(...)` class method and returns a result object with `success?`,
-`errors`, and the relevant record (`campaign`).
-
-Result object pattern (use a tiny `Struct` per service or a shared
-`ServiceResult`; recommend shared):
+Sub-resource controller responsible for the draft → active state
+transition. Strictly RESTful: only `#create`. The form submitting here
+is the "Ativar campanha" button on the show page.
 
 ```ruby
-# app/services/service_result.rb
-ServiceResult = Struct.new(:success, :errors, :payload, keyword_init: true) do
-  def success?; success; end
-  def failure?; !success; end
-end
-```
+# frozen_string_literal: true
 
-### 6.1 `Organizations::Campaigns::Sync`
+class Organizations::Campaigns::ActivationsController < Organizations::BaseController
+  before_action :set_campaign
 
-Responsibilities:
-
-1. Assign campaign attributes (`campaign.assign_attributes(attributes)`).
-2. Sync `prizes`:
-   - Records present in input with an `id` → update by id.
-   - Records present without `id` → create.
-   - Records persisted but missing from input → destroy *unless*
-     destroying would violate the "no prize destroy after first stamp"
-     rule (recommended: block by adding to errors).
-   - Position is the array index 0..N-1.
-   - For `entry_policy: 'simple'`, force `threshold: nil` regardless of
-     what came in (defense in depth — UI hides the field but a stale
-     state could still post a number).
-3. Sync `merchant_ids` against `campaign_merchants`:
-   - Adds always allowed.
-   - Removes only allowed when `campaign.draft?`. Otherwise the missing
-     ids are reported back as errors and the rest of the sync still
-     succeeds (or — recommendation — short-circuit and reject the whole
-     update so the operator sees the violation; either way is fine,
-     pick "reject the whole update" for consistency).
-
-Pseudocode:
-
-```ruby
-module Organizations
-  module Campaigns
-    class Sync
-      def self.call(campaign:, attributes:, merchant_ids:, prizes:)
-        new(campaign, attributes, merchant_ids, prizes).call
-      end
-
-      def initialize(campaign, attributes, merchant_ids, prizes)
-        @campaign = campaign
-        @attributes = attributes.to_h.symbolize_keys
-        @merchant_ids = merchant_ids
-        @prizes = prizes
-      end
-
-      def call
-        @campaign.assign_attributes(@attributes)
-
-        ActiveRecord::Base.transaction do
-          guard_merchant_removals!  # raises Aborted if blocked
-          @campaign.save!
-          sync_prizes!
-          sync_merchants!
-        end
-
-        ServiceResult.new(success: true, payload: { campaign: @campaign })
-      rescue ActiveRecord::RecordInvalid => e
-        ServiceResult.new(success: false, errors: e.record.errors.to_hash(true))
-      rescue Aborted => e
-        ServiceResult.new(success: false, errors: e.errors)
-      end
-
-      class Aborted < StandardError
-        attr_reader :errors
-        def initialize(errors); @errors = errors; super("aborted"); end
-      end
-
-      # ... sync_prizes!, sync_merchants!, guard_merchant_removals! ...
+  def create
+    if @campaign.activate!
+      redirect_to organizations_campaign_path(@campaign), notice: "Campanha ativada."
+    else
+      redirect_to organizations_campaign_path(@campaign), inertia: { errors: @campaign.errors }
     end
+  end
+
+  private
+
+  def set_campaign
+    @campaign = current_organization.campaigns
+                                    .where(type: "OrganizationCampaign")
+                                    .find(params[:campaign_id])
   end
 end
 ```
 
-`guard_merchant_removals!`: when `@campaign.persisted? && @campaign.active?`,
-compute `to_remove = @campaign.merchant_ids - @merchant_ids`; if non-empty,
-raise `Aborted.new("campaign.merchant_ids" => "Não é possível remover lojistas de uma campanha ativa.")`.
+File path: `app/controllers/organizations/campaigns/activations_controller.rb`.
 
-`#campaign` accessor on the result:
+### 5.6 `Organizations::Campaigns::TerminationsController` — new
 
-```ruby
-def campaign; @campaign; end
-```
-
-(or expose via `payload`).
-
-### 6.2 `Organizations::Campaigns::Activate`
-
-Responsibilities:
-
-1. Validate pre-activation guards:
-   - At least one prize.
-   - At least one campaign-merchant.
-   - `entry_policy: 'cumulative'` → every prize must have
-     `threshold.present? && threshold > 0`.
-   - `entry_policy: 'simple'` → every prize must have `threshold.nil?`
-     (sanity).
-   - `starts_at` and `ends_at` both present and in the right order
-     (defensive — model already validates this).
-2. Flip `status` from `draft` to `active` via `campaign.activate!`.
-3. Refuse if `status != 'draft'` (re-activation is a no-op /
-   error — Open Question 13.4).
-
-Sketch:
+Active → ended transition, same shape as activation. The Ruby keyword
+collision with `end` is sidestepped automatically by naming the
+resource `termination`.
 
 ```ruby
-module Organizations
-  module Campaigns
-    class Activate
-      def self.call(campaign)
-        new(campaign).call
-      end
+# frozen_string_literal: true
 
-      def initialize(campaign); @campaign = campaign; end
+class Organizations::Campaigns::TerminationsController < Organizations::BaseController
+  before_action :set_campaign
 
-      def call
-        errors = check
-        return ServiceResult.new(success: false, errors: errors) if errors.any?
-        @campaign.activate!
-        ServiceResult.new(success: true, payload: { campaign: @campaign })
-      end
+  def create
+    @campaign.end!
+    redirect_to organizations_campaign_path(@campaign), notice: "Campanha encerrada."
+  end
 
-      private
+  private
 
-      def check
-        errs = {}
-        errs["campaign.status"] = "Apenas campanhas em rascunho podem ser ativadas." unless @campaign.draft?
-        errs["campaign.prizes"] = "É necessário ao menos um prêmio." if @campaign.prizes.empty?
-        errs["campaign.merchant_ids"] = "É necessário ao menos um lojista." if @campaign.merchants.empty?
-        if @campaign.entry_policy == "cumulative"
-          if @campaign.prizes.any? { |p| p.threshold.to_i <= 0 }
-            errs["campaign.prizes"] = "Todos os prêmios precisam de marco (>0) em campanhas acumulativas."
-          end
-        end
-        errs
-      end
-    end
+  def set_campaign
+    @campaign = current_organization.campaigns
+                                    .where(type: "OrganizationCampaign")
+                                    .find(params[:campaign_id])
   end
 end
 ```
+
+File path: `app/controllers/organizations/campaigns/terminations_controller.rb`.
+
+The shared `set_campaign` helper between the two sub-controllers can be
+extracted into a small `Organizations::Campaigns::ScopedToCampaign`
+concern if a third sub-controller appears; not needed for v1.
+
+## 6. Model methods and concerns
+
+Per the project's "vanilla Rails is plenty" stance, the multi-step
+writes and the activation guard live on `OrganizationCampaign` itself,
+using Rails built-ins (nested attributes, `has_many :through`,
+validation contexts). No `app/services/`. No `ServiceResult`. Active
+Record's `errors` + boolean returns are sufficient.
+
+### 6.1 Nested writes (replaces `Sync`)
+
+On `app/models/organization_campaign.rb`:
+
+```ruby
+class OrganizationCampaign < Campaign
+  has_many :prizes, foreign_key: :campaign_id, dependent: :destroy
+  has_many :campaign_merchants, foreign_key: :campaign_id, dependent: :destroy
+  has_many :merchants, through: :campaign_merchants
+
+  accepts_nested_attributes_for :prizes, allow_destroy: true
+
+  before_validation :null_out_thresholds_for_simple_policy
+  before_validation :prevent_merchant_removal_when_active
+
+  # ...
+end
+```
+
+What this gives you, for free:
+
+- **Prize CRUD diffing** — `prizes_attributes: [{id:, name:, threshold:,
+  position:, _destroy:}]` is processed by Rails: rows with `id` update,
+  rows without `id` create, rows with `_destroy: true` destroy. The
+  controller just calls `@campaign.assign_attributes(campaign_params)`
+  + `@campaign.save`.
+- **Merchant enrollment** — the `has_many :through` association makes
+  `campaign.merchant_ids = [...]` a built-in setter that diffs the
+  join rows.
+
+Two model-level hooks cover the policy rules:
+
+```ruby
+private
+
+# Defense in depth: simple-policy campaigns must not carry thresholds,
+# even if a stale form posts one.
+def null_out_thresholds_for_simple_policy
+  return unless entry_policy == "simple"
+  prizes.each { |p| p.threshold = nil }
+end
+
+# Adds always allowed; removes only when draft. On an active campaign,
+# any attempt to drop a merchant short-circuits with a base error and
+# leaves the join rows untouched.
+def prevent_merchant_removal_when_active
+  return unless persisted? && active?
+  current_ids = campaign_merchants.reject(&:marked_for_destruction?).map(&:merchant_id)
+  removed_ids = merchants_was_ids - current_ids
+  return if removed_ids.empty?
+  errors.add(:base, "Não é possível remover lojistas de uma campanha ativa.")
+  throw(:abort)
+end
+
+def merchants_was_ids
+  @merchants_was_ids ||= campaign_merchants.where.not(id: nil).pluck(:merchant_id)
+end
+```
+
+Alternative (more explicit) shape if a callback feels too magic: expose
+`OrganizationCampaign#enroll_merchants(ids)` that performs the same
+guard imperatively, and have the controller call it after `save`. Either
+is acceptable; the callback version is the default because it lets a
+single `assign_attributes` + `save` round-trip through normal Rails
+form semantics. Pick one and stick with it.
+
+### 6.2 Activation guards (replaces `Activate`)
+
+Use Rails validation contexts so `valid?(:activation)` can be invoked
+before the status flip. Guards are type-specific to
+`OrganizationCampaign`, so they live on the subclass — no concern.
+
+```ruby
+class OrganizationCampaign < Campaign
+  validate :prizes_present_for_activation,            on: :activation
+  validate :all_prizes_have_threshold_for_activation, on: :activation
+  validate :merchants_present_for_activation,         on: :activation
+
+  # Flip draft → active. Returns false (and populates errors) on guard
+  # failure. Re-activation of an ended/active campaign also fails the
+  # `:activation` context via the status guard below.
+  def activate!
+    return false unless draft?
+    return false unless valid?(:activation)
+    update!(status: "active")
+  end
+
+  private
+
+  def prizes_present_for_activation
+    errors.add(:prizes, "É necessário ao menos um prêmio.") if prizes.empty?
+  end
+
+  def all_prizes_have_threshold_for_activation
+    return unless entry_policy == "cumulative"
+    return if prizes.all? { |p| p.threshold.to_i.positive? }
+    errors.add(:prizes, "Todos os prêmios precisam de marco (>0) em campanhas acumulativas.")
+  end
+
+  def merchants_present_for_activation
+    errors.add(:merchants, "É necessário ao menos um lojista.") if merchants.empty?
+  end
+end
+```
+
+The controller (§5.5) is just:
+
+```ruby
+if @campaign.activate!
+  redirect_to organizations_campaign_path(@campaign), notice: "Campanha ativada."
+else
+  redirect_to organizations_campaign_path(@campaign), inertia: { errors: @campaign.errors }
+end
+```
+
+Termination (`@campaign.end!`) already lives on `Campaign` per the
+data-model plan and stays there — same vanilla shape.
+
+### 6.3 What's deliberately *not* a concern
+
+We don't introduce an `Activatable` concern: the guards encode
+type-specific business rules, and there's no second model that "acts
+as activatable" with the same semantics. (`Sluggable` from the data-model
+plan is the right shape for a concern — a generic "has a slug" trait
+applied to multiple models.)
 
 ## 7. Inertia pages
 
@@ -804,7 +842,9 @@ A3.3 layout:
   - `ended` → `[ Ver detalhes ]` (everything read-only)
 - The activate / end / destroy buttons use Inertia's
   `<Link method="post" as="button" href="...">` pattern matching the
-  existing destroy in `merchants/index.tsx`.
+  existing destroy in `merchants/index.tsx`. Activate posts to
+  `/organizations/campaigns/:id/activation`; End posts to
+  `/organizations/campaigns/:id/termination`.
 
 ## 8. Sidebar updates
 
@@ -903,11 +943,15 @@ Target — Minitest (Rails default). Files to add:
   - `test_create_invalid_redirects_with_errors`
   - `test_update_blocks_merchant_removal_when_active`
   - `test_destroy_blocks_when_not_draft`
-  - `test_activate_succeeds_with_prize_and_merchant`
-  - `test_activate_blocks_when_no_prize`
-  - `test_activate_blocks_when_cumulative_prize_missing_threshold`
-  - `test_activate_blocks_when_no_merchant`
-  - `test_end_campaign_transitions_status`
+
+- `test/controllers/organizations/campaigns/activations_controller_test.rb`
+  - `test_create_succeeds_with_prize_and_merchant`
+  - `test_create_blocks_when_no_prize`
+  - `test_create_blocks_when_cumulative_prize_missing_threshold`
+  - `test_create_blocks_when_no_merchant`
+
+- `test/controllers/organizations/campaigns/terminations_controller_test.rb`
+  - `test_create_transitions_status_from_active_to_ended`
 
 - `test/controllers/organizations/merchants_controller_test.rb`
   (extend if exists; create if not)
@@ -917,26 +961,24 @@ Target — Minitest (Rails default). Files to add:
 
 ### Model tests
 
-(These probably belong in the data-model plan, but cite them here as
-prerequisites.)
+`test/models/organization_campaign_test.rb` — owned by this plan, this
+is where the multi-step write logic and activation guards are
+exercised:
 
-- `Campaign.activate!`, `LoyaltyCampaign#balance_for`, validation rules
-  for `OrganizationCampaign`. If the data-model agent doesn't cover
-  them, this plan owns:
-  - `test/models/organization_campaign_test.rb` — entry-policy
-    branching, simple-vs-cumulative validations.
+- `test_activate_succeeds_with_prize_and_merchant`
+- `test_activate_blocks_when_no_prize`
+- `test_activate_blocks_when_cumulative_prize_missing_threshold`
+- `test_activate_blocks_when_no_merchant`
+- `test_activate_returns_false_when_not_draft`
+- `test_nested_prizes_attributes_create_update_and_destroy`
+- `test_simple_policy_nulls_out_incoming_thresholds`
+- `test_merchant_ids_setter_adds_when_draft`
+- `test_merchant_removal_blocked_when_active`
+- `test_merchant_addition_allowed_when_active`
 
-### Service tests
-
-- `test/services/organizations/campaigns/sync_test.rb`
-  - prize create / update / destroy
-  - merchant adds + removes (draft) succeed
-  - merchant removes (active) raise Aborted
-  - simple policy nulls out incoming thresholds
-
-- `test/services/organizations/campaigns/activate_test.rb`
-  - happy path
-  - all four guard failures
+Other model coverage (`Campaign#end!`, `LoyaltyCampaign#balance_for`,
+entry-policy branching validations, etc.) belongs to the data-model
+plan; cite them here as prerequisites.
 
 ### System tests
 
@@ -1068,9 +1110,10 @@ history must remain queryable from the campaign side).
 The data model says "ending is terminal". The UI should not show an
 "Ativar" button on ended campaigns.
 
-**Recommendation**: hard-block in `Activate` service (already does —
-`unless @campaign.draft?`). UI hides the button. If reactivation is
-ever needed, it's a new ticket and a `reopen!` transition method.
+**Recommendation**: hard-block in `OrganizationCampaign#activate!`
+(it already returns `false` unless `draft?`). UI hides the button. If
+reactivation is ever needed, it's a new ticket and a `reopen!`
+transition method.
 
 ### 13.4 Prize threshold edits on active campaigns
 
@@ -1087,8 +1130,10 @@ strand customers who already qualified.
   form.
 
 This matches the wireframe text "no changing dates/prizes after at
-least one stamp issued" in A3.4. The Sync service enforces; the form
-disables visually using a `hasStamps` flag passed from the server.
+least one stamp issued" in A3.4. A model-level validation on
+`OrganizationCampaign` (and a `before_destroy` on `Prize`) enforces it
+server-side; the form disables visually using a `hasStamps` flag
+passed from the server.
 
 ### 13.5 Does `day_cap` apply per-customer-per-merchant or per-customer-per-campaign?
 
@@ -1138,16 +1183,16 @@ can populate yet.
 New files:
 
 - `app/controllers/organizations/campaigns_controller.rb`
-- `app/services/service_result.rb`
-- `app/services/organizations/campaigns/sync.rb`
-- `app/services/organizations/campaigns/activate.rb`
+- `app/controllers/organizations/campaigns/activations_controller.rb`
+- `app/controllers/organizations/campaigns/terminations_controller.rb`
 - `app/frontend/pages/organizations/campaigns/index.tsx`
 - `app/frontend/pages/organizations/campaigns/new.tsx`
 - `app/frontend/pages/organizations/campaigns/edit.tsx`
 - `app/frontend/pages/organizations/campaigns/show.tsx`
 - `test/controllers/organizations/campaigns_controller_test.rb`
-- `test/services/organizations/campaigns/sync_test.rb`
-- `test/services/organizations/campaigns/activate_test.rb`
+- `test/controllers/organizations/campaigns/activations_controller_test.rb`
+- `test/controllers/organizations/campaigns/terminations_controller_test.rb`
+- `test/models/organization_campaign_test.rb`
 - `test/system/organizations/campaigns_test.rb`
 
 Modified files:
