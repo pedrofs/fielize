@@ -224,12 +224,13 @@ Existing file: `app/controllers/organizations/merchants_controller.rb`.
 
 Changes:
 
-- `show` action gets two extra props:
-  - `loyalty_campaign` — summary of the merchant's `LoyaltyCampaign` if
-    it exists (`{ id, name, status, prize_count, active_customer_count }`,
-    plus a `manage_url` deep-linking to the merchant-side surface).
+- `show` action gets two extra props (server emits snake_case;
+  `inertia-caseshift` flips to camelCase on the React side, shown here):
+  - `loyaltyCampaign` — summary of the merchant's `LoyaltyCampaign` if
+    it exists (`{ id, name, status, prizeCount, activeCustomerCount }`,
+    plus a `manageUrl` deep-linking to the merchant-side surface).
     Returns `nil` if none exists.
-  - `participating_campaigns` — `OrganizationCampaign`s this merchant is
+  - `participatingCampaigns` — `OrganizationCampaign`s this merchant is
     enrolled in via `campaign_merchants`, scoped to active + ended (no
     drafts visible from the merchant view).
 - New private serializers `serialize_loyalty(c)` and
@@ -812,26 +813,26 @@ const form = useForm({
   campaign: {
     name: "",
     slug: "",
-    starts_at: "",
-    ends_at: "",
-    entry_policy: "cumulative" as EntryPolicy,
-    requires_validation: false,
-    day_cap: null as number | null,
-    merchant_ids: [] as number[],
-    prizes_attributes: [] as PrizeInput[],
+    startsAt: "",
+    endsAt: "",
+    entryPolicy: "cumulative" as EntryPolicy,
+    requiresValidation: false,
+    dayCap: null as number | null,
+    merchantIds: [] as string[],
+    prizesAttributes: [] as PrizeInput[],
   }
 })
 ```
 
 Conditional rendering rules:
 
-- `entry_policy === "cumulative"`:
-  - Hide the `day_cap` block.
+- `entryPolicy === "cumulative"`:
+  - Hide the `dayCap` block.
   - Prize rows show a `Stamps` column (numeric input) + `Nome`.
   - Validation: stamps required, > 0.
-- `entry_policy === "simple"`:
-  - Show the `day_cap` block — radio "Sem limite" vs "[N] entrada(s)
-    por dia". When the second option is selected, `day_cap` is a
+- `entryPolicy === "simple"`:
+  - Show the `dayCap` block — radio "Sem limite" vs "[N] entrada(s)
+    por dia". When the second option is selected, `dayCap` is a
     positive integer.
   - Prize rows hide `Stamps`. On switch from cumulative→simple, blank
     out prize thresholds in form state.
@@ -858,10 +859,10 @@ Same form as `new`, pre-filled from the `campaign` prop. PATCH to
 
 Disable rules when `status === "active"`:
 
-- `entry_policy`, `starts_at`, `requires_validation`, `day_cap`
-  read-only (rendered as static text with a small "Encerre a campanha
-  para alterar" tooltip).
-- `name`, `slug`, `ends_at` editable (you can extend a campaign).
+- `entryPolicy`, `startsAt`, `requiresValidation`, `dayCap` read-only
+  (rendered as static text with a small "Encerre a campanha para
+  alterar" tooltip).
+- `name`, `slug`, `endsAt` editable (you can extend a campaign).
 - Prize rows: editable name, but `[Remover]` disabled on rows that
   have stamps against them. Adding new prizes is allowed.
 - Merchant multi-select: adds allowed; removing a checked merchant

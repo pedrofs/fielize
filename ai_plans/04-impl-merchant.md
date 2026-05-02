@@ -180,11 +180,14 @@ class Merchants::HomeController < Merchants::BaseController
 end
 ```
 
-`serialize_recent` collapses each visit into `{ customer_name, lines:
-[{ campaign_name, progress_label }] }` where `progress_label` is the
-human form ("3/6", "Saldo 4 visitas") computed by walking the visit's
-stamps. Keep it in a private helper or extract to a small serializer
-under `app/serializers/`.
+`serialize_recent` collapses each visit into a hash whose keys are
+snake_case on the Ruby side (`customer_name`, `lines: [{ campaign_name,
+progress_label }]`). The React side reads them as camelCase
+(`customerName`, `lines: [{ campaignName, progressLabel }]`) — the Vite
+`inertia-caseshift` plugin handles the conversion automatically.
+`progress_label` is the human form ("3/6", "Saldo 4 visitas") computed
+by walking the visit's stamps. Keep it in a private helper or extract
+to a small serializer under `app/serializers/`.
 
 ### 5.2 `Merchants::LoyaltyProgramsController` — M2 (singular resource)
 
@@ -650,10 +653,10 @@ and
 
 ### 7.1 `pages/merchants/home/index.tsx` — M1
 
-Three stat cards (`visits_today`, `visits_week`, `pending_validations`)
-in a responsive grid; quick-action buttons that link to
+Three stat cards (`visitsToday`, `visitsWeek`, `pendingValidations`) in
+a responsive grid; quick-action buttons that link to
 `/merchants/validations/new` and `/merchants/redemptions/new`; a
-recent-activity list rendered from `recent_activity` prop. Reuse
+recent-activity list rendered from the `recentActivity` prop. Reuse
 shadcn `Card`, `Button`. No data fetching client-side.
 
 ### 7.2 `pages/merchants/loyalty_programs/show.tsx` — M2
@@ -693,7 +696,7 @@ code: the inline component and the dedicated page share a
 ### 7.4 `pages/merchants/campaigns/index.tsx` — M3
 
 Plain list. Each row: campaign name, a small status pill (`ATIVA` /
-`ENCERRADA` / `RASCUNHO`), `stamps_issued_here`, and the date window.
+`ENCERRADA` / `RASCUNHO`), `stampsIssuedHere`, and the date window.
 No actions. Empty state copy: "Você ainda não participa de nenhuma
 campanha. O administrador da sua CDL pode adicionar sua loja a uma
 campanha quando ela for criada."

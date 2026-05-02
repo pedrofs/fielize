@@ -609,14 +609,15 @@ once `AppLayout` is wired up).
 Single component, prop-driven mode switch. Three modes:
 
 - `mode === "identify"` — render the WhatsApp+LGPD form. Submits
-  `POST /s/:merchant_slug` with `{ phone, lgpd_opted_in: true }` (the
-  phone IS the WhatsApp number; one input). On error, Inertia errors
-  hash repopulates field-level errors via `useForm`.
+  `POST /s/:merchant_slug` with `{ phone, lgpdOptedIn: true }` (the
+  phone IS the WhatsApp number; one input; `inertia-caseshift` flips
+  the keys to snake_case on the wire). On error, Inertia errors hash
+  repopulates field-level errors via `useForm`.
 - `mode === "landing"` — returning customer; render current progress
   and a `[Registrar visita]` button (or auto-POST per §5
   recommendation).
-- `mode === "result"` — post-scan; render `confirmed_stamps`,
-  `pending_stamps`, optional shared `code` + `expires_at`.
+- `mode === "result"` — post-scan; render `confirmedStamps`,
+  `pendingStamps`, optional shared `code` + `expiresAt`.
 
 Layout: top header (CDL logo + merchant name), then a single column.
 Pasaporte progress as a row of squares (filled/empty), Cartão Fidelidade
