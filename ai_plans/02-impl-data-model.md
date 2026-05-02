@@ -76,7 +76,37 @@ This plan **does not** cover:
   [`./01-data-model.md`](./01-data-model.md) cross-table invariant
   table).
 
-## 4. Gem additions
+## 4. Prerequisites and gems
+
+### PostgreSQL 18+
+
+Required for the built-in `uuidv7()` function. Earlier versions don't
+have it, so the `default: -> { "uuidv7()" }` expression in every
+migration will fail. On macOS:
+
+```bash
+brew install postgresql@18
+brew services stop postgresql@<old>
+brew services start postgresql@18
+```
+
+Verify with `psql -c "SELECT uuidv7();"` — it should print a v7 UUID.
+
+### Generators default to UUID
+
+In `config/application.rb`:
+
+```ruby
+config.generators do |g|
+  g.orm :active_record, primary_key_type: :uuid
+end
+```
+
+This only affects what the migration generator emits; the
+`default: -> { "uuidv7()" }` expression and `type: :uuid` on `t.references`
+still have to be added per-migration.
+
+### Gems
 
 Add these lines to `/Users/pedro/Projects/fielize/Gemfile` near the top
 of the main group (after `gem "jbuilder"` is fine):
@@ -170,7 +200,7 @@ this as an equivalent constraint when no NULLs remain.
 ```ruby
 class CreateCustomers < ActiveRecord::Migration[8.2]
   def change
-    create_table :customers do |t|
+    create_table :customers, id: :uuid, default: -> { "uuidv7()" } do |t|
       t.string   :phone, null: false                  # IS the WhatsApp number
       t.string   :name
       t.string   :email
@@ -188,9 +218,9 @@ end
 ```ruby
 class CreateVisits < ActiveRecord::Migration[8.2]
   def change
-    create_table :visits do |t|
-      t.references :customer, null: false, foreign_key: true
-      t.references :merchant, null: false, foreign_key: true
+    create_table :visits, id: :uuid, default: -> { "uuidv7()" } do |t|
+      t.references :customer, type: :uuid, null: false, foreign_key: true
+      t.references :merchant, type: :uuid, null: false, foreign_key: true
       t.timestamps
     end
     add_index :visits, [:merchant_id, :created_at]
@@ -206,10 +236,10 @@ Note the table is append-only. We don't need `updated_at` but we'll keep it to m
 ```ruby
 class CreateCampaigns < ActiveRecord::Migration[8.2]
   def change
-    create_table :campaigns do |t|
+    create_table :campaigns, id: :uuid, default: -> { "uuidv7()" } do |t|
       t.string     :type, null: false
-      t.references :organization, null: false, foreign_key: true
-      t.references :merchant, foreign_key: true
+      t.references :organization, type: :uuid, null: false, foreign_key: true
+      t.references :merchant, type: :uuid, foreign_key: true
       t.string     :name, null: false
       t.string     :slug, null: false
       t.string     :status, null: false, default: "draft"
@@ -241,9 +271,9 @@ end
 ```ruby
 class CreateCampaignMerchants < ActiveRecord::Migration[8.2]
   def change
-    create_table :campaign_merchants do |t|
-      t.references :campaign, null: false, foreign_key: true
-      t.references :merchant, null: false, foreign_key: true
+    create_table :campaign_merchants, id: :uuid, default: -> { "uuidv7()" } do |t|
+      t.references :campaign, type: :uuid, null: false, foreign_key: true
+      t.references :merchant, type: :uuid, null: false, foreign_key: true
       t.timestamps
     end
     add_index :campaign_merchants, [:campaign_id, :merchant_id], unique: true
@@ -257,8 +287,8 @@ end
 ```ruby
 class CreatePrizes < ActiveRecord::Migration[8.2]
   def change
-    create_table :prizes do |t|
-      t.references :campaign, null: false, foreign_key: true
+    create_table :prizes, id: :uuid, default: -> { "uuidv7()" } do |t|
+      t.references :campaign, type: :uuid, null: false, foreign_key: true
       t.string  :name, null: false
       t.integer :threshold              # null only for simple-OrganizationCampaign prizes
       t.integer :position, null: false, default: 0
@@ -274,11 +304,11 @@ end
 ```ruby
 class CreateStamps < ActiveRecord::Migration[8.2]
   def change
-    create_table :stamps do |t|
-      t.references :visit,    null: false, foreign_key: true
-      t.references :campaign, null: false, foreign_key: true
-      t.references :customer, null: false, foreign_key: true
-      t.references :merchant, null: false, foreign_key: true
+    create_table :stamps, id: :uuid, default: -> { "uuidv7()" } do |t|
+      t.references :visit,    type: :uuid, null: false, foreign_key: true
+      t.references :campaign, type: :uuid, null: false, foreign_key: true
+      t.references :customer, type: :uuid, null: false, foreign_key: true
+      t.references :merchant, type: :uuid, null: false, foreign_key: true
       t.string   :status, null: false, default: "confirmed"
       t.string   :code, limit: 6
       t.datetime :expires_at
@@ -304,12 +334,12 @@ end
 ```ruby
 class CreateRedemptions < ActiveRecord::Migration[8.2]
   def change
-    create_table :redemptions do |t|
-      t.references :customer,      null: false, foreign_key: true
-      t.references :campaign,      null: false, foreign_key: true
-      t.references :prize,         null: false, foreign_key: true
-      t.references :merchant,      foreign_key: true
-      t.references :merchant_user, foreign_key: { to_table: :users }
+    create_table :redemptions, id: :uuid, default: -> { "uuidv7()" } do |t|
+      t.references :customer,      type: :uuid, null: false, foreign_key: true
+      t.references :campaign,      type: :uuid, null: false, foreign_key: true
+      t.references :prize,         type: :uuid, null: false, foreign_key: true
+      t.references :merchant,      type: :uuid, foreign_key: true
+      t.references :merchant_user, type: :uuid, foreign_key: { to_table: :users }
       t.integer  :threshold_snapshot, null: false
       t.datetime :created_at, null: false
     end

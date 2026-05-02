@@ -1,9 +1,9 @@
 class CreateCampaigns < ActiveRecord::Migration[8.2]
   def change
-    create_table :campaigns do |t|
+    create_table :campaigns, id: :uuid, default: -> { "uuidv7()" } do |t|
       t.string     :type, null: false
-      t.references :organization, null: false, foreign_key: true
-      t.references :merchant, foreign_key: true
+      t.references :organization, type: :uuid, null: false, foreign_key: true
+      t.references :merchant, type: :uuid, foreign_key: true
       t.string     :name, null: false
       t.string     :slug, null: false
       t.string     :status, null: false, default: "draft"

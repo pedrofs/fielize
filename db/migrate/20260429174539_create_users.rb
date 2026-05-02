@@ -1,6 +1,6 @@
 class CreateUsers < ActiveRecord::Migration[8.2]
   def change
-    create_table :users do |t|
+    create_table :users, id: :uuid, default: -> { "uuidv7()" } do |t|
       t.string :clerk_id, null: false
       t.string :email
       t.string :first_name

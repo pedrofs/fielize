@@ -7,6 +7,18 @@ that isn't here, this file gets updated first.
 
 Companion to [`./00-overview.md`](./00-overview.md).
 
+## Conventions
+
+- **PostgreSQL 18+**. Required for the `uuidv7()` built-in.
+- **UUIDv7 primary keys.** Every table uses native `uuid` PKs with
+  `default: -> { "uuidv7()" }`. Foreign keys must specify `type: :uuid`.
+  Configured globally for new generators in `config/application.rb`
+  (`primary_key_type: :uuid`) but the `default:` expression has to be
+  added per-migration. See CLAUDE.md "UUIDv7 primary keys".
+- **Slugs in URLs**, never raw IDs. UUIDs are still on the wire when an
+  ID is unavoidable (admin tools), but customer-facing surfaces use
+  `merchant.slug`, `campaign.slug`, etc.
+
 ## Existing tables (already in place)
 
 These are already migrated and shipped:
@@ -89,7 +101,7 @@ Identifies the end consumer. Not a Clerk user. WhatsApp number is the
 asset; verification is async and non-blocking.
 
 ```ruby
-create_table :customers do |t|
+create_table :customers, id: :uuid, default: -> { "uuidv7()" } do |t|
   t.string :phone, null: false                    # E.164 normalized; IS the WhatsApp number; uniqueness key
   t.string :name                                  # optional
   t.datetime :lgpd_opted_in_at, null: false
@@ -110,9 +122,9 @@ Validations:
 Append-only ledger of physical scan events.
 
 ```ruby
-create_table :visits do |t|
-  t.references :customer, null: false, foreign_key: true
-  t.references :merchant, null: false, foreign_key: true
+create_table :visits, id: :uuid, default: -> { "uuidv7()" } do |t|
+  t.references :customer, type: :uuid, null: false, foreign_key: true
+  t.references :merchant, type: :uuid, null: false, foreign_key: true
   t.datetime :created_at, null: false
 end
 add_index :visits, [:merchant_id, :created_at]
@@ -125,10 +137,10 @@ Single-table inheritance with denormalized `merchant_id` for
 `LoyaltyCampaign`.
 
 ```ruby
-create_table :campaigns do |t|
+create_table :campaigns, id: :uuid, default: -> { "uuidv7()" } do |t|
   t.string :type, null: false                     # 'OrganizationCampaign' | 'LoyaltyCampaign'
-  t.references :organization, null: false, foreign_key: true
-  t.references :merchant, foreign_key: true       # NOT NULL only for LoyaltyCampaign
+  t.references :organization, type: :uuid, null: false, foreign_key: true
+  t.references :merchant, type: :uuid, foreign_key: true   # NOT NULL only for LoyaltyCampaign
   t.string :name, null: false
   t.string :slug, null: false
   t.string :status, null: false, default: 'draft'  # draft | active | ended
@@ -274,9 +286,9 @@ Only used by `OrganizationCampaign`. Empty for `LoyaltyCampaign` (the
 merchant lives on `campaigns.merchant_id`).
 
 ```ruby
-create_table :campaign_merchants do |t|
-  t.references :campaign, null: false, foreign_key: true
-  t.references :merchant, null: false, foreign_key: true
+create_table :campaign_merchants, id: :uuid, default: -> { "uuidv7()" } do |t|
+  t.references :campaign, type: :uuid, null: false, foreign_key: true
+  t.references :merchant, type: :uuid, null: false, foreign_key: true
   t.datetime :created_at, null: false
 end
 add_index :campaign_merchants, [:campaign_id, :merchant_id], unique: true
@@ -288,8 +300,8 @@ add_index :campaign_merchants, :merchant_id
 Tier on a campaign.
 
 ```ruby
-create_table :prizes do |t|
-  t.references :campaign, null: false, foreign_key: true
+create_table :prizes, id: :uuid, default: -> { "uuidv7()" } do |t|
+  t.references :campaign, type: :uuid, null: false, foreign_key: true
   t.string :name, null: false
   t.integer :threshold, null: false               # stamps/visits required
   t.integer :position, null: false, default: 0
@@ -326,11 +338,11 @@ lives directly on the row — there is no separate pending-check-in
 table.
 
 ```ruby
-create_table :stamps do |t|
-  t.references :visit, null: false, foreign_key: true
-  t.references :campaign, null: false, foreign_key: true
-  t.references :customer, null: false, foreign_key: true
-  t.references :merchant, null: false, foreign_key: true
+create_table :stamps, id: :uuid, default: -> { "uuidv7()" } do |t|
+  t.references :visit, type: :uuid, null: false, foreign_key: true
+  t.references :campaign, type: :uuid, null: false, foreign_key: true
+  t.references :customer, type: :uuid, null: false, foreign_key: true
+  t.references :merchant, type: :uuid, null: false, foreign_key: true
   t.string :status, null: false, default: 'confirmed'   # confirmed | pending
   t.string :code, limit: 6                               # only set when status='pending'
   t.datetime :expires_at                                 # only set when status='pending'
@@ -384,12 +396,12 @@ Stamp.status:   pending ──► confirmed
 A customer claimed a Prize.
 
 ```ruby
-create_table :redemptions do |t|
-  t.references :customer, null: false, foreign_key: true
-  t.references :campaign, null: false, foreign_key: true
-  t.references :prize, null: false, foreign_key: true
-  t.references :merchant, foreign_key: true              # required for LoyaltyCampaign
-  t.references :merchant_user, foreign_key: { to_table: :users }   # who confirmed it
+create_table :redemptions, id: :uuid, default: -> { "uuidv7()" } do |t|
+  t.references :customer, type: :uuid, null: false, foreign_key: true
+  t.references :campaign, type: :uuid, null: false, foreign_key: true
+  t.references :prize, type: :uuid, null: false, foreign_key: true
+  t.references :merchant, type: :uuid, foreign_key: true            # required for LoyaltyCampaign
+  t.references :merchant_user, type: :uuid, foreign_key: { to_table: :users }   # who confirmed it
   t.integer :threshold_snapshot, null: false             # frozen prize.threshold at redemption time
   t.datetime :created_at, null: false
 end

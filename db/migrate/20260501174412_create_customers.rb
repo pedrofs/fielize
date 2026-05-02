@@ -1,6 +1,6 @@
 class CreateCustomers < ActiveRecord::Migration[8.2]
   def change
-    create_table :customers do |t|
+    create_table :customers, id: :uuid, default: -> { "uuidv7()" } do |t|
       t.string   :phone, null: false                  # IS the WhatsApp number
       t.string   :name
       t.string   :email
