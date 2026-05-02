@@ -3,22 +3,16 @@
 class OrganizationCampaign < Campaign
   ENTRY_POLICIES = %w[simple cumulative].freeze
 
+  enum :entry_policy, ENTRY_POLICIES.index_with(&:itself)
+
   has_many :campaign_merchants, foreign_key: :campaign_id, dependent: :destroy
   has_many :merchants, through: :campaign_merchants
 
-  validates :starts_at, :ends_at, presence: true
   validates :entry_policy, inclusion: { in: ENTRY_POLICIES }
+  validates :starts_at, :ends_at, presence: true
   validate  :ends_after_starts
   validate  :merchant_id_must_be_blank
   validate  :policy_specific_config
-
-  def cumulative?
-    entry_policy == "cumulative"
-  end
-
-  def simple?
-    entry_policy == "simple"
-  end
 
   def confirmed_stamps_for(customer)
     stamps.where(status: "confirmed", customer: customer)

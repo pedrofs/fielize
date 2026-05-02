@@ -1,6 +1,6 @@
 class Merchant < ApplicationRecord
   include Sluggable
-  sluggable from: :name, scope: :organization_id
+  sluggable from: :name
 
   belongs_to :organization
   has_many :users, dependent: :nullify
