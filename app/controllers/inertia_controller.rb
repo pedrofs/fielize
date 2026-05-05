@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 class InertiaController < ApplicationController
   include PageMetadata
 
@@ -8,13 +6,19 @@ class InertiaController < ApplicationController
 
     {
       id: current_user.id,
-      clerk_id: current_user.clerk_id,
       email: current_user.email,
       first_name: current_user.first_name,
       last_name: current_user.last_name,
-      organization_id: current_user.organization_id,
-      merchant_id: current_user.merchant_id,
-      image_url: current_user.image_url
+      image_url: current_user.image_url,
+      memberships: current_user.organization_memberships.includes(:organization, :merchant).map do |m|
+        {
+          organization_id: m.organization_id,
+          organization_name: m.organization.name,
+          organization_slug: m.organization.slug,
+          role: m.role,
+          merchant_id: m.merchant_id
+        }
+      end
     }
   }
 
@@ -23,7 +27,6 @@ class InertiaController < ApplicationController
 
     {
       id: current_organization.id,
-      clerk_organization_id: current_organization.clerk_organization_id,
       name: current_organization.name,
       slug: current_organization.slug,
       image_url: current_organization.image_url

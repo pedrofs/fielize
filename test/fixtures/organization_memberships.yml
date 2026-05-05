@@ -1,0 +1,10 @@
+admin_membership:
+  organization: one
+  user: admin
+  role: owner
+
+merchant_staff_membership:
+  organization: one
+  user: merchant_staff
+  role: member
+  merchant: one

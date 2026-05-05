@@ -1,5 +1,3 @@
-# frozen_string_literal: true
-
 class Organizations::Merchants::InvitationsController < Organizations::BaseController
   before_action :set_merchant
 
@@ -8,21 +6,22 @@ class Organizations::Merchants::InvitationsController < Organizations::BaseContr
 
     if email.blank?
       return redirect_to organizations_merchant_path(@merchant),
-        inertia: { errors: { "invitation.email" => "Email can't be blank" } }
+        inertia: { errors: { "invitation.email" => "Email não pode ficar em branco" } }
     end
 
-    request = Clerk::Models::Operations::CreateInvitationRequest.new(
-      email_address: email,
-      public_metadata: { merchant_id: @merchant.id }
+    invitation = @merchant.organization.invitations.new(
+      email:,
+      role: :member,
+      merchant: @merchant,
+      invited_by: current_user
     )
 
-    begin
-      Clerk::SDK.new.invitations.create(request: request)
-      redirect_to organizations_merchant_path(@merchant), notice: "Invitation sent to #{email}."
-    rescue => e
-      Rails.logger.error("Clerk invitation failed: #{e.class} #{e.message}")
+    if invitation.save
+      InvitationMailer.with(invitation:).invite.deliver_later
+      redirect_to organizations_merchant_path(@merchant), notice: "Convite enviado para #{email}."
+    else
       redirect_to organizations_merchant_path(@merchant),
-        inertia: { errors: { "invitation.email" => "Could not send invitation" } }
+        inertia: { errors: { "invitation.email" => invitation.errors.full_messages.to_sentence } }
     end
   end
 

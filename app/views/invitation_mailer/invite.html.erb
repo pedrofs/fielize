@@ -1,0 +1,9 @@
+<p>Olá!</p>
+
+<p>Você foi convidado para entrar em <strong><%= @organization.name %></strong> no Fielize.</p>
+
+<p><%= link_to "Aceitar convite", accept_invitation_url(@invitation.token) %></p>
+
+<p>Este convite expira em 7 dias.</p>
+
+<p>Se você não estava esperando este convite, pode ignorar este email com segurança.</p>
