@@ -11,12 +11,12 @@ class Organizations::MembershipsController < Organizations::BaseController
             id: m.user.id,
             email: m.user.email,
             first_name: m.user.first_name,
-            last_name: m.user.last_name,
+            last_name: m.user.last_name
           },
           role: m.role,
-          merchant: m.merchant&.slice(:id, :name),
+          merchant: m.merchant&.slice(:id, :name)
         }
-      end,
+      end
     }
   end
 
