@@ -22,7 +22,12 @@ Rails.application.routes.draw do
   end
 
   namespace :merchants do
-    # Merchant-user-scoped routes (TBD)
+    resource :loyalty_program, only: %i[show update] do
+      resources :prizes, only: %i[new create edit update destroy], module: :loyalty_program
+    end
+    resources :campaigns,   only: :index
+    resources :validations, only: %i[new create]
+    resources :redemptions, only: %i[new create]
   end
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

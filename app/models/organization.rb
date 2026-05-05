@@ -6,7 +6,7 @@ class Organization < ApplicationRecord
   has_many :merchants, dependent: :destroy
   has_many :campaigns, dependent: :destroy
   has_many :organization_campaigns, dependent: :destroy
-  has_many :loyalty_campaigns, through: :merchants
+  has_many :loyalty_campaigns, through: :merchants, source: :loyalty_campaign
 
   validates :clerk_organization_id, presence: true, uniqueness: true
 end

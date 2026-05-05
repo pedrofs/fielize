@@ -19,9 +19,9 @@ class MerchantTest < ActiveSupport::TestCase
     refute_includes merchant.organization_campaigns, campaigns(:cartao_calzados)
   end
 
-  test "loyalty_campaigns association is via merchant_id" do
+  test "loyalty_campaign association is via merchant_id" do
     merchant = merchants(:one)
-    assert_includes merchant.loyalty_campaigns, campaigns(:cartao_calzados)
+    assert_equal campaigns(:cartao_calzados), merchant.loyalty_campaign
   end
 
   test "destroying a merchant blocks if it has visits (restrict_with_exception)" do

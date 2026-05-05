@@ -17,7 +17,7 @@ class Organizations::MerchantsController < Organizations::BaseController
     set_title @merchant.name
     add_breadcrumb label: @merchant.name, path: organizations_merchant_path(@merchant)
 
-    loyalty = @merchant.loyalty_campaigns.first
+    loyalty = @merchant.loyalty_campaign
     participating = @merchant.organization_campaigns
                              .where(status: %w[active ended])
                              .order(starts_at: :desc)

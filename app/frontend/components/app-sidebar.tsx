@@ -1,7 +1,14 @@
 import * as React from "react"
 import { Link, usePage } from "@inertiajs/react"
 import { OrganizationSwitcher, UserButton } from "@clerk/react"
-import { HomeIcon, StoreIcon, MegaphoneIcon } from "lucide-react"
+import {
+  HomeIcon,
+  StoreIcon,
+  MegaphoneIcon,
+  CreditCardIcon,
+  BadgeCheckIcon,
+  GiftIcon,
+} from "lucide-react"
 
 import type { SharedProps } from "@/types"
 
@@ -50,15 +57,67 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem>
               <SidebarMenuButton
                 asChild
-                tooltip="Home"
+                tooltip="Início"
                 isActive={url === "/"}
               >
                 <Link href="/">
                   <HomeIcon />
-                  <span>Home</span>
+                  <span>Início</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
+            {isMerchantUser && (
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Cartão Fidelidade"
+                    isActive={url.startsWith("/merchants/loyalty_program")}
+                  >
+                    <Link href="/merchants/loyalty_program">
+                      <CreditCardIcon />
+                      <span>Cartão Fidelidade</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Campanhas"
+                    isActive={url.startsWith("/merchants/campaigns")}
+                  >
+                    <Link href="/merchants/campaigns">
+                      <MegaphoneIcon />
+                      <span>Campanhas</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Validar"
+                    isActive={url.startsWith("/merchants/validations")}
+                  >
+                    <Link href="/merchants/validations/new">
+                      <BadgeCheckIcon />
+                      <span>Validar</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Resgatar"
+                    isActive={url.startsWith("/merchants/redemptions")}
+                  >
+                    <Link href="/merchants/redemptions/new">
+                      <GiftIcon />
+                      <span>Resgatar</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
+            )}
             {isOrganizationUser && (
               <>
                 <SidebarMenuItem>
