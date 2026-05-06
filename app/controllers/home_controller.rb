@@ -1,32 +1,27 @@
-# frozen_string_literal: true
-
 class HomeController < InertiaController
-  before_action :require_clerk_session!
+  require_authentication
 
-  with_title "Home"
-  with_breadcrumb label: "Home", path: -> { root_path }
+  with_title "Início"
+  with_breadcrumb label: "Início", path: -> { root_path }
 
   def index
-    if current_user&.merchant_id.present?
+    if current_merchant
       render_merchant_dashboard
-    elsif current_user&.organization_id.present?
+    elsif current_organization
       render_organization_dashboard
     else
-      render inertia: {}   # Signed in but unassociated; fallback empty
+      render inertia: {}
     end
   end
 
   private
 
-  # M1 dashboard: today/week visit counts, pending validations, recent activity.
   def render_merchant_dashboard
     today = Time.current.beginning_of_day
     week  = 1.week.ago
 
     visits        = current_merchant.visits
-    pending_count = current_merchant.stamps.pending
-                                    .where("expires_at > ?", Time.current)
-                                    .distinct.count(:code)
+    pending_count = current_merchant.stamps.valid.distinct.count(:code)
 
     render inertia: "merchants/home/index", props: {
       stats: {
@@ -41,7 +36,6 @@ class HomeController < InertiaController
     }
   end
 
-  # A1 dashboard: high-level org health.
   def render_organization_dashboard
     org = current_organization
     week = 1.week.ago
