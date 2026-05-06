@@ -1,13 +1,9 @@
 class Organizations::Merchants::InvitationsController < Organizations::BaseController
   before_action :set_merchant
+  before_action :check_email_present, only: :create
 
   def create
     email = params.dig(:invitation, :email).to_s.strip
-
-    if email.blank?
-      return redirect_to organizations_merchant_path(@merchant),
-        inertia: { errors: { "invitation.email" => "Email não pode ficar em branco" } }
-    end
 
     invitation = @merchant.organization.invitations.new(
       email:,
@@ -29,5 +25,13 @@ class Organizations::Merchants::InvitationsController < Organizations::BaseContr
 
   def set_merchant
     @merchant = current_organization.merchants.find(params[:merchant_id])
+  end
+
+  def check_email_present
+    email = params.dig(:invitation, :email).to_s.strip
+    return unless email.blank?
+
+    redirect_to organizations_merchant_path(@merchant),
+      inertia: { errors: { "invitation.email" => "Email não pode ficar em branco" } }
   end
 end

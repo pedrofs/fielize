@@ -6,6 +6,8 @@ class User < ApplicationRecord
   has_many :invitations_sent, class_name: "Invitation", foreign_key: :invited_by_id, dependent: :nullify
   has_many :redemptions, foreign_key: :merchant_user_id, dependent: :nullify
 
+  scope :with_merchant, -> { joins(:organization_memberships).where.not(organization_memberships: { merchant_id: nil }).distinct }
+
   validates :email, presence: true, uniqueness: { case_sensitive: false }
 
   normalizes :email, with: ->(e) { e.strip.downcase }
@@ -25,6 +27,10 @@ class User < ApplicationRecord
 
   def member_of?(organization)
     organization_memberships.find_by(organization:).present?
+  end
+
+  def merchant_user?
+    organization_memberships.where.not(merchant_id: nil).any?
   end
 
   def owns_any_organization?

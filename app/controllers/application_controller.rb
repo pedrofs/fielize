@@ -12,7 +12,7 @@ class ApplicationController < ActionController::Base
   end
 
   def require_merchant_user!
-    redirect_to root_path unless current_user&.organization_memberships&.where.not(merchant_id: nil)&.any?
+    redirect_to root_path unless current_user&.merchant_user?
   end
 
   def current_user

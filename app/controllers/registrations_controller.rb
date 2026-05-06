@@ -2,7 +2,7 @@ class RegistrationsController < ApplicationController
   allow_unauthenticated_access only: %i[new create]
 
   def new
-    render inertia: "auth/sign_up"
+    render inertia: "registrations/new"
   end
 
   def create

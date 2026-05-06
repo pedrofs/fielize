@@ -1,12 +1,10 @@
 class HomeController < InertiaController
-  allow_unauthenticated_access only: %i[index]
+  require_authentication
 
   with_title "Início"
   with_breadcrumb label: "Início", path: -> { root_path }
 
   def index
-    return redirect_to new_session_path unless authenticated?
-
     if current_merchant
       render_merchant_dashboard
     elsif current_organization
@@ -23,9 +21,7 @@ class HomeController < InertiaController
     week  = 1.week.ago
 
     visits        = current_merchant.visits
-    pending_count = current_merchant.stamps.pending
-                                     .where("expires_at > ?", Time.current)
-                                     .distinct.count(:code)
+    pending_count = current_merchant.stamps.valid.distinct.count(:code)
 
     render inertia: "merchants/home/index", props: {
       stats: {

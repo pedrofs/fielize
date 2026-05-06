@@ -3,7 +3,7 @@ class SessionsController < ApplicationController
   rate_limit to: 10, within: 3.minutes, only: :create, with: -> { redirect_to new_session_path, alert: "Tente novamente mais tarde." }
 
   def new
-    render inertia: "auth/sign_in"
+    render inertia: "sessions/new"
   end
 
   def create

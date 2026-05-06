@@ -1,14 +1,11 @@
 class InvitationAcceptancesController < ApplicationController
   allow_unauthenticated_access only: %i[show create]
 
+  before_action :set_invitation, only: %i[show create]
+  before_action :require_valid_invitation, only: %i[show create]
+  before_action :require_authenticated_and_matching_email, only: :create
+
   def show
-    @invitation = Invitation.find_by(token: params[:token])
-
-    unless @invitation&.pending?
-      redirect_to new_session_path, alert: "O convite é inválido ou expirou."
-      return
-    end
-
     if authenticated? && current_user.email.downcase == @invitation.email.downcase
       @invitation.accept(current_user)
       redirect_to root_path, notice: "Você entrou em #{@invitation.organization.name}."
@@ -19,16 +16,25 @@ class InvitationAcceptancesController < ApplicationController
   end
 
   def create
-    return redirect_to new_registration_path unless authenticated?
+    @invitation.accept(current_user)
+    redirect_to root_path, notice: "Você entrou em #{@invitation.organization.name}."
+  end
 
-    token = session.delete(:invitation_token)
-    invitation = Invitation.find_by(token:)
+  private
 
-    if invitation&.pending? && invitation.email.downcase == current_user.email.downcase
-      invitation.accept(current_user)
-      redirect_to root_path, notice: "Você entrou em #{invitation.organization.name}."
-    else
-      redirect_to root_path
-    end
+  def set_invitation
+    @invitation = Invitation.find_by(token: params[:token])
+  end
+
+  def require_valid_invitation
+    return if @invitation&.pending?
+
+    redirect_to new_session_path, alert: "O convite é inválido ou expirou."
+  end
+
+  def require_authenticated_and_matching_email
+    return if authenticated? && current_user.email.downcase == @invitation.email.downcase
+
+    redirect_to new_registration_path
   end
 end

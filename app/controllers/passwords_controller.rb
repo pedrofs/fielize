@@ -4,7 +4,7 @@ class PasswordsController < ApplicationController
   rate_limit to: 10, within: 3.minutes, only: :create, with: -> { redirect_to new_password_path, alert: "Tente novamente mais tarde." }
 
   def new
-    render inertia: "auth/password_reset_request"
+    render inertia: "passwords/new"
   end
 
   def create
@@ -16,7 +16,7 @@ class PasswordsController < ApplicationController
   end
 
   def edit
-    render inertia: "auth/password_reset"
+    render inertia: "passwords/edit"
   end
 
   def update

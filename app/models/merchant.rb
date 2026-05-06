@@ -10,6 +10,7 @@ class Merchant < ApplicationRecord
   has_many :organization_campaigns, through: :campaign_merchants
   has_many :redemptions, dependent: :destroy
   has_many :memberships, class_name: "OrganizationMembership", dependent: :nullify
+  has_many :users, through: :memberships
 
   validates :name, presence: true
 

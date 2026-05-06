@@ -16,6 +16,7 @@ class Stamp < ApplicationRecord
 
   scope :pending,   -> { where(status: "pending") }
   scope :confirmed, -> { where(status: "confirmed") }
+  scope :valid,     -> { pending.where("expires_at > ?", Time.current) }
 
   def pending?;   status == "pending";   end
   def confirmed?; status == "confirmed"; end
