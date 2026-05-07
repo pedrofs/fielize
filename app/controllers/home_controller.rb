@@ -1,6 +1,4 @@
 class HomeController < InertiaController
-  require_authentication
-
   with_title "Início"
   with_breadcrumb label: "Início", path: -> { root_path }
 

@@ -5,6 +5,8 @@ class ApplicationController < ActionController::Base
 
   helper_method :current_user, :current_organization, :current_merchant
 
+  before_action :require_authentication
+
   private
 
   def require_organization_user!

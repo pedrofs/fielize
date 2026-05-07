@@ -35,10 +35,10 @@ type Membership = {
 }
 
 type Props = {
-  memberships: Membership[]
+  memberships: Membership[] | undefined
 }
 
-export default function MembershipsIndex({ memberships }: Props) {
+export default function MembershipsIndex({ memberships = [] }: Props) {
   const { props: pageProps } = usePage<SharedProps>()
   const currentUser = pageProps.currentUser
   const isOwner = currentUser?.memberships.some(

@@ -27,10 +27,7 @@ module Authentication
   end
 
   def find_session_by_cookie
-    raw_id = cookies.signed[:session_id]
-    return nil if raw_id.blank?
-    return nil unless raw_id.to_s.match?(/\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i)
-    Session.find_by(id: raw_id)
+    Session.find_by(id: cookies.signed[:session_id]) if cookies.signed[:session_id]
   end
 
   def request_authentication
