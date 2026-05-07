@@ -2,11 +2,11 @@ class Organization < ApplicationRecord
   include Sluggable
   sluggable from: :name
 
-  has_many :users, dependent: :nullify
+  has_many :memberships, class_name: "OrganizationMembership", dependent: :destroy
+  has_many :users, through: :memberships
   has_many :merchants, dependent: :destroy
   has_many :campaigns, dependent: :destroy
   has_many :organization_campaigns, dependent: :destroy
   has_many :loyalty_campaigns, through: :merchants, source: :loyalty_campaign
-
-  validates :clerk_organization_id, presence: true, uniqueness: true
+  has_many :invitations, dependent: :destroy
 end

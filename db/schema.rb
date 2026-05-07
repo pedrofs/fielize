@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_01_174856) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_05_144822) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -56,6 +56,24 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_01_174856) do
     t.index ["phone"], name: "index_customers_on_phone", unique: true
   end
 
+  create_table "invitations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.datetime "created_at", null: false
+    t.string "email", null: false
+    t.datetime "expires_at"
+    t.uuid "invited_by_id"
+    t.uuid "merchant_id"
+    t.uuid "organization_id", null: false
+    t.string "role", null: false
+    t.string "token", null: false
+    t.datetime "updated_at", null: false
+    t.index ["invited_by_id"], name: "index_invitations_on_invited_by_id"
+    t.index ["merchant_id"], name: "index_invitations_on_merchant_id"
+    t.index ["organization_id", "email"], name: "idx_invitations_on_org_email_pending", unique: true, where: "(accepted_at IS NULL)"
+    t.index ["organization_id"], name: "index_invitations_on_organization_id"
+    t.index ["token"], name: "index_invitations_on_token", unique: true
+  end
+
   create_table "merchants", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "name", null: false
@@ -66,14 +84,27 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_01_174856) do
     t.index ["slug"], name: "index_merchants_on_slug", unique: true
   end
 
+  create_table "organization_memberships", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "invited_by_id"
+    t.uuid "merchant_id"
+    t.uuid "organization_id", null: false
+    t.string "role", default: "member", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["invited_by_id"], name: "index_organization_memberships_on_invited_by_id"
+    t.index ["merchant_id"], name: "index_organization_memberships_on_merchant_id"
+    t.index ["organization_id"], name: "index_organization_memberships_on_organization_id"
+    t.index ["user_id", "organization_id"], name: "index_organization_memberships_on_user_id_and_organization_id", unique: true
+    t.index ["user_id"], name: "index_organization_memberships_on_user_id"
+  end
+
   create_table "organizations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.string "clerk_organization_id", null: false
     t.datetime "created_at", null: false
     t.string "image_url"
     t.string "name"
     t.string "slug", null: false
     t.datetime "updated_at", null: false
-    t.index ["clerk_organization_id"], name: "index_organizations_on_clerk_organization_id", unique: true
     t.index ["slug"], name: "index_organizations_on_slug", unique: true
   end
 
@@ -105,6 +136,15 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_01_174856) do
     t.index ["prize_id"], name: "index_redemptions_on_prize_id"
   end
 
+  create_table "sessions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "ip_address"
+    t.datetime "updated_at", null: false
+    t.string "user_agent"
+    t.uuid "user_id", null: false
+    t.index ["user_id"], name: "index_sessions_on_user_id"
+  end
+
   create_table "stamps", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "campaign_id", null: false
     t.string "code", limit: 6
@@ -126,18 +166,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_01_174856) do
   end
 
   create_table "users", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.string "clerk_id", null: false
     t.datetime "created_at", null: false
-    t.string "email"
+    t.string "email", null: false
     t.string "first_name"
     t.string "image_url"
     t.string "last_name"
-    t.uuid "merchant_id"
-    t.uuid "organization_id"
+    t.string "password_digest", null: false
     t.datetime "updated_at", null: false
-    t.index ["clerk_id"], name: "index_users_on_clerk_id", unique: true
-    t.index ["merchant_id"], name: "index_users_on_merchant_id"
-    t.index ["organization_id"], name: "index_users_on_organization_id"
+    t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   create_table "visits", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -155,19 +191,25 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_01_174856) do
   add_foreign_key "campaign_merchants", "merchants"
   add_foreign_key "campaigns", "merchants"
   add_foreign_key "campaigns", "organizations"
+  add_foreign_key "invitations", "merchants"
+  add_foreign_key "invitations", "organizations"
+  add_foreign_key "invitations", "users", column: "invited_by_id"
   add_foreign_key "merchants", "organizations"
+  add_foreign_key "organization_memberships", "merchants"
+  add_foreign_key "organization_memberships", "organizations"
+  add_foreign_key "organization_memberships", "users"
+  add_foreign_key "organization_memberships", "users", column: "invited_by_id"
   add_foreign_key "prizes", "campaigns"
   add_foreign_key "redemptions", "campaigns"
   add_foreign_key "redemptions", "customers"
   add_foreign_key "redemptions", "merchants"
   add_foreign_key "redemptions", "prizes"
   add_foreign_key "redemptions", "users", column: "merchant_user_id"
+  add_foreign_key "sessions", "users"
   add_foreign_key "stamps", "campaigns"
   add_foreign_key "stamps", "customers"
   add_foreign_key "stamps", "merchants"
   add_foreign_key "stamps", "visits"
-  add_foreign_key "users", "merchants"
-  add_foreign_key "users", "organizations"
   add_foreign_key "visits", "customers"
   add_foreign_key "visits", "merchants"
 end

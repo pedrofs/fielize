@@ -2,8 +2,8 @@ source "https://rubygems.org"
 
 gem "inertia_rails", "~> 3.21"
 
-# Clerk authentication SDK
-gem "clerk-sdk-ruby", require: "clerk"
+# Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
+gem "bcrypt", "~> 3.1.7"
 
 # Use specific branch of Rails
 gem "rails", github: "rails/rails", branch: "main"
@@ -20,9 +20,6 @@ gem "phonelib"
 # QR code generation as SVG/PNG. Used by merchant detail pages
 # (printable QR for `/s/:merchant_slug`) and admin exports.
 gem "rqrcode"
-
-# Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
-# gem "bcrypt", "~> 3.1.7"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
@@ -59,8 +56,8 @@ group :development, :test do
 end
 
 group :development do
-  # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
+  gem "letter_opener"
 end
 
 group :test do

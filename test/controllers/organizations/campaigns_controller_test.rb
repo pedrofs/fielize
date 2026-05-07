@@ -1,18 +1,7 @@
 require "test_helper"
 
 class Organizations::CampaignsControllerTest < ActionDispatch::IntegrationTest
-  # The Clerk-auth gate in production sets current_user via the rack
-  # middleware. In tests we stub that out by setting @current_user
-  # directly on the controller via an integration override. For this
-  # phase we exercise the model-level rules through controller calls
-  # by hitting the routes with a logged-in admin user (handled by the
-  # sign-in stub in test_helper.rb, when added).
-  #
-  # If sign-in stubbing isn't yet in place, these tests serve as the
-  # contract spec — implement the stub as part of the admin phase.
-
   setup do
-    skip "Clerk sign-in stub not yet wired in test_helper" unless self.class.method_defined?(:sign_in_as)
     sign_in_as(users(:admin))
   end
 
@@ -56,7 +45,6 @@ end
 
 class Organizations::Campaigns::ActivationsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    skip "Clerk sign-in stub not yet wired in test_helper" unless self.class.method_defined?(:sign_in_as)
     sign_in_as(users(:admin))
   end
 
@@ -92,7 +80,6 @@ end
 
 class Organizations::Campaigns::TerminationsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    skip "Clerk sign-in stub not yet wired in test_helper" unless self.class.method_defined?(:sign_in_as)
     sign_in_as(users(:admin))
   end
 

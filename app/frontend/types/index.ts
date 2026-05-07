@@ -3,20 +3,25 @@ export type FlashData = {
   alert?: string
 }
 
+export type Membership = {
+  organizationId: string
+  organizationName: string | null
+  organizationSlug: string | null
+  role: "owner" | "member"
+  merchantId: string | null
+}
+
 export type CurrentUser = {
   id: string
-  clerkId: string
   email: string | null
   firstName: string | null
   lastName: string | null
   imageUrl: string | null
-  organizationId: string | null
-  merchantId: string | null
+  memberships: Membership[]
 }
 
 export type CurrentOrganization = {
   id: string
-  clerkOrganizationId: string
   name: string | null
   slug: string | null
   imageUrl: string | null
@@ -40,8 +45,6 @@ export type SharedProps = {
   title: string | null
   breadcrumbs: Breadcrumb[]
 }
-
-// ---- Campaigns ----
 
 export type EntryPolicy = "simple" | "cumulative"
 export type CampaignStatus = "draft" | "active" | "ended"
@@ -91,8 +94,6 @@ export type MerchantOption = {
   id: string
   name: string
 }
-
-// ---- Merchant surface ----
 
 export type LoyaltyProgramStatus = "draft" | "active" | "ended"
 

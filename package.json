@@ -6,7 +6,6 @@
     "vite-plugin-ruby": "^5.2.1"
   },
   "dependencies": {
-    "@clerk/react": "^6.4.5",
     "@fontsource-variable/inter": "^5.2.8",
     "@inertiajs/react": "^3.0.3",
     "@inertiajs/vite": "^3.0.3",

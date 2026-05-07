@@ -1,6 +1,5 @@
 import * as React from "react"
-import { Link, usePage } from "@inertiajs/react"
-import { OrganizationSwitcher, UserButton } from "@clerk/react"
+import { Link, usePage, router } from "@inertiajs/react"
 import {
   HomeIcon,
   StoreIcon,
@@ -8,9 +7,12 @@ import {
   CreditCardIcon,
   BadgeCheckIcon,
   GiftIcon,
+  ChevronsUpDownIcon,
+  LogOutIcon,
+  BuildingIcon,
 } from "lucide-react"
 
-import type { SharedProps } from "@/types"
+import type { SharedProps, Membership } from "@/types"
 
 import {
   Sidebar,
@@ -25,13 +27,25 @@ import {
   SidebarRail,
   useSidebar,
 } from "@/components/ui/sidebar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu"
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { url, props: pageProps } = usePage<SharedProps>()
   const { state } = useSidebar()
   const collapsed = state === "collapsed"
-  const isOrganizationUser = !!pageProps.currentUser?.organizationId
-  const isMerchantUser = !!pageProps.currentUser?.merchantId
+  const memberships = pageProps.currentUser?.memberships ?? []
+  const isOrganizationUser = memberships.some((m) => m.merchantId === null)
+  const isMerchantUser = memberships.some((m) => m.merchantId !== null)
+  const orgMemberships = memberships.filter((m) => m.merchantId === null)
+  const activeOrg = pageProps.currentOrganization
+  const user = pageProps.currentUser
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -52,7 +66,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel>Plataforma</SidebarGroupLabel>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
@@ -150,7 +164,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        {!isMerchantUser && (
+        {orgMemberships.length > 1 && !isMerchantUser && (
           <div
             className={
               collapsed
@@ -158,18 +172,43 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 : "flex items-center px-2 py-1.5"
             }
           >
-            <OrganizationSwitcher
-              hidePersonal={false}
-              appearance={{
-                elements: {
-                  rootBox: collapsed ? "" : "w-full",
-                  organizationSwitcherTrigger: collapsed
-                    ? "p-1 rounded-md hover:bg-sidebar-accent"
-                    : "w-full justify-between p-1 rounded-md hover:bg-sidebar-accent",
-                  organizationPreview: collapsed ? "gap-0" : ""
-                },
-              }}
-            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex w-full items-center gap-2 rounded-md p-1 text-sm hover:bg-sidebar-accent">
+                  <BuildingIcon className="size-4 shrink-0" />
+                  {!collapsed && (
+                    <>
+                      <span className="truncate font-medium">
+                        {activeOrg?.name ?? "Selecionar organização"}
+                      </span>
+                      <ChevronsUpDownIcon className="ml-auto size-4 text-muted-foreground" />
+                    </>
+                  )}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="top" align="start" className="w-56">
+                {orgMemberships.map((m: Membership) => (
+                  <DropdownMenuItem
+                    key={m.organizationId}
+                    onClick={() => {
+                      router.post(
+                        `/organizations/${m.organizationId}/switching`,
+                        {},
+                        { preserveScroll: true }
+                      )
+                    }}
+                  >
+                    <BuildingIcon className="mr-2 size-4" />
+                    <span>{m.organizationName}</span>
+                    {m.organizationId === activeOrg?.id && (
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        Ativa
+                      </span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
         <div
@@ -179,21 +218,42 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               : "flex items-center px-2 py-1.5"
           }
         >
-          <UserButton
-            showName={!collapsed}
-            appearance={{
-              elements: {
-                rootBox: collapsed ? "" : "w-full",
-                userButtonTrigger: collapsed
-                  ? "p-1 rounded-md hover:bg-sidebar-accent"
-                  : "w-full justify-start gap-2 p-1 rounded-md hover:bg-sidebar-accent",
-                userButtonBox: collapsed ? "" : "flex-row w-full gap-2 min-w-0",
-                userButtonOuterIdentifier: collapsed
-                  ? "!hidden"
-                  : "text-sm font-medium truncate",
-              },
-            }}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex w-full items-center gap-2 rounded-md p-1 text-sm hover:bg-sidebar-accent">
+                <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium">
+                  {user?.firstName?.[0]?.toUpperCase() ?? user?.email?.[0]?.toUpperCase() ?? "U"}
+                </div>
+                {!collapsed && (
+                  <>
+                    <span className="truncate font-medium">
+                      {user?.firstName || user?.email}
+                    </span>
+                    <ChevronsUpDownIcon className="ml-auto size-4 text-muted-foreground" />
+                  </>
+                )}
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="start" className="w-56">
+              <DropdownMenuLabel>
+                <div className="flex flex-col">
+                  <span className="font-medium">
+                    {user?.firstName} {user?.lastName}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {user?.email}
+                  </span>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => router.delete("/session")}
+              >
+                <LogOutIcon className="mr-2 size-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </SidebarFooter>
       <SidebarRail />

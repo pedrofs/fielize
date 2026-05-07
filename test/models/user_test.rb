@@ -1,40 +1,25 @@
 require "test_helper"
 
 class UserTest < ActiveSupport::TestCase
-  test "clerk_id is required and unique" do
+  test "email is required and unique" do
     blank = User.new
     refute blank.valid?
-    assert_includes blank.errors[:clerk_id], "can't be blank"
+    assert_includes blank.errors[:email], "can't be blank"
 
-    duplicate = User.new(clerk_id: users(:admin).clerk_id)
+    duplicate = User.new(email: users(:admin).email, password: "password123")
     refute duplicate.valid?
-    assert_includes duplicate.errors[:clerk_id], "has already been taken"
+    assert_includes duplicate.errors[:email], "has already been taken"
   end
 
-  test "scope is mutually exclusive: organization XOR merchant" do
-    both = User.new(
-      clerk_id: "user_test_both",
-      organization: organizations(:one),
-      merchant: merchants(:one)
-    )
-    refute both.valid?
-    assert_includes both.errors[:base],
-      "user can belong to either an Organization or a Merchant, not both"
+  test "password is required" do
+    user = User.new(email: "test@example.com")
+    refute user.valid?
+    assert_includes user.errors[:password], "can't be blank"
   end
 
-  test "Organization-scoped user is valid" do
-    user = User.new(clerk_id: "user_test_org", organization: organizations(:one))
-    assert user.valid?, user.errors.full_messages.inspect
-  end
-
-  test "Merchant-scoped user is valid" do
-    user = User.new(clerk_id: "user_test_merchant_unique", merchant: merchants(:one))
-    assert user.valid?, user.errors.full_messages.inspect
-  end
-
-  test "user with neither scope is valid (unassociated)" do
-    user = User.new(clerk_id: "user_test_neither")
-    assert user.valid?, user.errors.full_messages.inspect
+  test "email is normalized" do
+    user = User.create!(email: "  TEST@Example.COM  ", password: "password123")
+    assert_equal "test@example.com", user.email
   end
 
   test "redemptions association via merchant_user_id" do
@@ -48,5 +33,24 @@ class UserTest < ActiveSupport::TestCase
       threshold_snapshot: 5
     )
     assert_includes staff.redemptions, redemption
+  end
+
+  test "membership_for returns correct membership" do
+    user = users(:admin)
+    membership = user.membership_for(organizations(:one))
+    assert membership
+    assert_equal organizations(:one), membership.organization
+  end
+
+  test "owns_organization?" do
+    admin = users(:admin)
+    assert admin.owns_organization?(organizations(:one))
+    refute users(:merchant_staff).owns_organization?(organizations(:one))
+  end
+
+  test "member_of?" do
+    staff = users(:merchant_staff)
+    assert staff.member_of?(organizations(:one))
+    refute staff.member_of?(organizations(:two))
   end
 end

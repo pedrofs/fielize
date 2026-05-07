@@ -1,17 +1,48 @@
 class User < ApplicationRecord
-  belongs_to :organization, optional: true
-  belongs_to :merchant, optional: true
-
+  has_secure_password
+  has_many :sessions, dependent: :destroy
+  has_many :organization_memberships, dependent: :destroy
+  has_many :organizations, through: :organization_memberships
+  has_many :invitations_sent, class_name: "Invitation", foreign_key: :invited_by_id, dependent: :nullify
   has_many :redemptions, foreign_key: :merchant_user_id, dependent: :nullify
 
-  validates :clerk_id, presence: true, uniqueness: true
-  validate :scope_is_exclusive
+  scope :with_merchant, -> { joins(:organization_memberships).where.not(organization_memberships: { merchant_id: nil }).distinct }
 
-  private
+  validates :email, presence: true, uniqueness: { case_sensitive: false }
 
-  def scope_is_exclusive
-    return unless organization_id.present? && merchant_id.present?
+  normalizes :email, with: ->(e) { e.strip.downcase }
 
-    errors.add(:base, "user can belong to either an Organization or a Merchant, not both")
+  def membership_for(organization)
+    organization_memberships.find_by(organization:)
+  end
+
+  def merchant_scope
+    membership = organization_memberships.find { |m| m.merchant_id.present? }
+    membership&.merchant
+  end
+
+  def owns_organization?(organization)
+    organization_memberships.find_by(organization:, role: :owner).present?
+  end
+
+  def member_of?(organization)
+    organization_memberships.find_by(organization:).present?
+  end
+
+  def merchant_user?
+    organization_memberships.where.not(merchant_id: nil).any?
+  end
+
+  def owns_any_organization?
+    organization_memberships.where(role: :owner).exists?
+  end
+
+  def active_organization
+    return @active_organization if defined?(@active_organization)
+    @active_organization = organizations.first
+  end
+
+  def active_organization=(org)
+    @active_organization = member_of?(org) ? org : nil
   end
 end

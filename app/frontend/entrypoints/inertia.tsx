@@ -1,12 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react'
-import { ClerkProvider } from '@clerk/react'
 import { TooltipProvider } from '@/components/ui/tooltip'
-
-const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string
-
-if (!clerkPublishableKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY env var")
-}
 
 void createInertiaApp({
   pages: "../pages",
@@ -26,19 +19,9 @@ void createInertiaApp({
   },
 
   withApp: (app) => (
-    <ClerkProvider
-      publishableKey={clerkPublishableKey}
-      signInUrl="/sign-in"
-      signUpUrl="/sign-up"
-      afterSignOutUrl="/sign-in"
-    >
-      <TooltipProvider>{app}</TooltipProvider>
-    </ClerkProvider>
+    <TooltipProvider>{app}</TooltipProvider>
   ),
 }).catch((error) => {
-  // This ensures this entrypoint is only loaded on Inertia pages
-  // by checking for the presence of the root element (#app by default).
-  // Feel free to remove this `catch` if you don't need it.
   if (document.getElementById("app")) {
     throw error
   } else {

@@ -3,7 +3,7 @@ require "test_helper"
 class RedemptionTest < ActiveSupport::TestCase
   setup do
     @loyalty_campaign = campaigns(:cartao_calzados)
-    @prize    = prizes(:cartao_cafe) # threshold 5
+    @prize    = prizes(:cartao_cafe)
     @customer = customers(:maria)
     @merchant = @loyalty_campaign.merchant
     @valid_attrs = {
@@ -38,24 +38,24 @@ class RedemptionTest < ActiveSupport::TestCase
   test "LoyaltyCampaign redemption requires merchant_id" do
     redemption = Redemption.new(@valid_attrs.merge(merchant: nil))
     refute redemption.valid?
-    assert_includes redemption.errors[:merchant_id], "is required for LoyaltyCampaign redemption"
+    assert_includes redemption.errors[:merchant_id], "é obrigatório para resgate de Cartão Fidelidade"
   end
 
   test "LoyaltyCampaign redemption: merchant must match campaign's merchant" do
     redemption = Redemption.new(@valid_attrs.merge(merchant: merchants(:two)))
     refute redemption.valid?
-    assert_includes redemption.errors[:merchant_id], "must match campaign's merchant"
+    assert_includes redemption.errors[:merchant_id], "deve corresponder ao lojista da campanha"
   end
 
   test "merchant_user must belong to the redemption's merchant" do
-    other_user = users(:admin) # an Org user, no merchant_id
+    other_user = users(:admin)
     redemption = Redemption.new(@valid_attrs.merge(merchant_user: other_user))
     refute redemption.valid?
-    assert_includes redemption.errors[:merchant_user], "must belong to the redemption's merchant"
+    assert_includes redemption.errors[:merchant_user], "deve pertencer ao lojista do resgate"
   end
 
   test "merchant_user matching the merchant is accepted" do
-    staff = users(:merchant_staff) # belongs to merchants(:one)
+    staff = users(:merchant_staff)
     redemption = Redemption.new(@valid_attrs.merge(merchant_user: staff))
     assert redemption.valid?, redemption.errors.full_messages.inspect
   end
@@ -67,7 +67,7 @@ class RedemptionTest < ActiveSupport::TestCase
       customer: @customer,
       campaign: pasaporte,
       prize: pasaporte_prize,
-      merchant: nil,                  # not required for org campaigns
+      merchant: nil,
       threshold_snapshot: 6
     )
     assert redemption.valid?, redemption.errors.full_messages.inspect

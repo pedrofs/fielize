@@ -1,13 +1,9 @@
-# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
-
 one:
   name: CDL Jaguarão
-  clerk_organization_id: org_test_one
   image_url: https://example.com/jaguarao.png
   slug: cdl-jaguarao
 
 two:
   name: CDL Pelotas
-  clerk_organization_id: org_test_two
   image_url: https://example.com/pelotas.png
   slug: cdl-pelotas
