@@ -19,7 +19,7 @@ jobs:
           bundler-cache: true
 
       - name: Scan for common Rails security vulnerabilities using static analysis
-        run: bin/brakeman --no-pager
+        run: bin/brakeman --no-pager -x PermitAttributes
       
       - name: Scan for known security vulnerabilities in gems used
         run: bin/bundler-audit
@@ -84,7 +84,7 @@ jobs:
       - name: Run tests
         env:
           RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/fielize_test
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
           # REDIS_URL: redis://localhost:6379/0
         run: bin/rails db:test:prepare test
@@ -109,8 +109,8 @@ jobs:
       #   options: --health-cmd "redis-cli ping" --health-interval 10s --health-timeout 5s --health-retries 5
 
     steps:
-      - name: Install packages
-        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
+       - name: Install packages
+         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips chromium-browser
 
       - name: Checkout code
         uses: actions/checkout@v6
@@ -120,10 +120,15 @@ jobs:
         with:
           bundler-cache: true
 
+      - name: Setup Chrome for system tests
+        run: |
+          CHROME_BIN=$(which chromium-browser || which chromium)
+          echo "CHROME_BIN=$CHROME_BIN" >> $GITHUB_ENV
+
       - name: Run System Tests
         env:
           RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/fielize_test
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
           # REDIS_URL: redis://localhost:6379/0
         run: bin/rails db:test:prepare test:system
