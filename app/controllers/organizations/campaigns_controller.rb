@@ -84,6 +84,7 @@ class Organizations::CampaignsController < Organizations::BaseController
     params.expect(campaign: [
       :name, :slug, :starts_at, :ends_at, :requires_validation,
       :entry_policy, :day_cap,
+      :description, :terms, :hero_image,
       merchant_ids: [],
       prizes_attributes: [ [ :id, :name, :threshold, :position, :_destroy ] ]
     ])
@@ -101,7 +102,10 @@ class Organizations::CampaignsController < Organizations::BaseController
       requires_validation: false,
       day_cap: nil,
       merchant_ids: [],
-      prizes: []
+      prizes: [],
+      description: nil,
+      terms: nil,
+      hero_image_url: nil
     }
   end
 
@@ -133,7 +137,10 @@ class Organizations::CampaignsController < Organizations::BaseController
       merchant_ids: campaign.merchants.pluck(:id),
       prizes: campaign.prizes.order(:position).map do |p|
         { id: p.id, name: p.name, threshold: p.threshold, position: p.position }
-      end
+      end,
+      description: campaign.description.body&.to_html,
+      terms: campaign.terms.body&.to_html,
+      hero_image_url: campaign.hero_image.attached? ? rails_blob_path(campaign.hero_image, only_path: true) : nil
     }
   end
 end

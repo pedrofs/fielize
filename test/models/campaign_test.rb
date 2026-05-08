@@ -94,6 +94,44 @@ class CampaignTest < ActiveSupport::TestCase
     assert_equal "black-friday-2026", campaign.slug
   end
 
+  test "active_now includes active campaigns within their time window" do
+    campaign = campaigns(:pasaporte)
+    assert campaign.active?
+    assert_includes Campaign.active_now, campaign
+  end
+
+  test "active_now excludes ended campaigns" do
+    campaign = campaigns(:pasaporte)
+    campaign.update!(status: "ended")
+    refute_includes Campaign.active_now, campaign
+  end
+
+  test "active_now excludes draft campaigns" do
+    campaign = campaigns(:pasaporte)
+    campaign.update!(status: "draft")
+    refute_includes Campaign.active_now, campaign
+  end
+
+  test "active_now excludes campaigns whose starts_at is in the future" do
+    campaign = campaigns(:pasaporte)
+    campaign.update!(starts_at: 1.day.from_now)
+    refute_includes Campaign.active_now, campaign
+  end
+
+  test "active_now excludes campaigns whose ends_at is in the past" do
+    campaign = campaigns(:pasaporte)
+    campaign.update!(starts_at: 1.month.ago, ends_at: 1.day.ago)
+    refute_includes Campaign.active_now, campaign
+  end
+
+  test "active_now treats LoyaltyCampaigns with NULL start/end as open-ended" do
+    campaign = campaigns(:cartao_calzados)
+    assert_nil campaign.starts_at
+    assert_nil campaign.ends_at
+    assert campaign.active?
+    assert_includes Campaign.active_now, campaign
+  end
+
   test "Sluggable adds numeric suffix on collision within scope" do
     OrganizationCampaign.create!(
       organization: organizations(:one),

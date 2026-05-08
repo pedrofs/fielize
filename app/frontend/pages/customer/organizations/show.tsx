@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
+import { Link } from "@inertiajs/react"
 import { MapContainer, Marker, TileLayer } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
@@ -23,12 +24,30 @@ type Organization = {
   heroImageUrl: string | null
 }
 
+type CampaignLink = {
+  id: string
+  slug: string
+  name: string
+  kind: "organization" | "loyalty"
+  url: string
+}
+
 type Merchant = {
   id: string
   name: string
   address: string | null
   latitude: number | null
   longitude: number | null
+  campaigns: CampaignLink[]
+}
+
+type CampaignCard = {
+  id: string
+  slug: string
+  name: string
+  heroImageUrl: string | null
+  prizeHighlight: string | null
+  url: string
 }
 
 type MapCenter = {
@@ -39,6 +58,7 @@ type MapCenter = {
 type Props = {
   organization: Organization
   merchants: Merchant[]
+  campaigns: CampaignCard[]
   mapCenter: MapCenter
   emptyState: boolean
 }
@@ -132,9 +152,42 @@ function MerchantsMap({
   )
 }
 
+function CampaignCardItem({ campaign }: { campaign: CampaignCard }) {
+  return (
+    <Link
+      href={campaign.url}
+      className="flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:bg-accent/30"
+      data-testid="campaign-card"
+    >
+      {campaign.heroImageUrl ? (
+        <img
+          src={campaign.heroImageUrl}
+          alt=""
+          className="h-32 w-full object-cover"
+        />
+      ) : (
+        <div
+          className="h-32 w-full"
+          style={{ background: "var(--primary, #e5e7eb)" }}
+          data-testid="campaign-card-band"
+        />
+      )}
+      <div className="flex flex-col gap-1 p-4">
+        <span className="font-semibold">{campaign.name}</span>
+        {campaign.prizeHighlight && (
+          <span className="text-sm text-muted-foreground">
+            Prêmio: {campaign.prizeHighlight}
+          </span>
+        )}
+      </div>
+    </Link>
+  )
+}
+
 export default function CustomerOrganizationShow({
   organization,
   merchants,
+  campaigns,
   mapCenter,
   emptyState,
 }: Props) {
@@ -168,6 +221,29 @@ export default function CustomerOrganizationShow({
   return (
     <>
       <OrgHeader organization={organization} />
+
+      <section
+        className="flex flex-col gap-3 pb-6"
+        data-testid="campaigns-section"
+      >
+        <h2 className="text-base font-semibold">Campanhas ativas</h2>
+        {campaigns.length === 0 ? (
+          <p
+            className="text-sm text-muted-foreground"
+            data-testid="campaigns-empty"
+          >
+            Nenhuma campanha ativa no momento.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {campaigns.map((campaign) => (
+              <li key={campaign.id}>
+                <CampaignCardItem campaign={campaign} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3 pb-6">
         {mappableMerchants.length > 0 && mapCenter ? (
@@ -226,13 +302,36 @@ export default function CustomerOrganizationShow({
                   </SheetDescription>
                 )}
               </SheetHeader>
-              <div className="flex flex-col gap-1 p-4 pt-0">
+              <div className="flex flex-col gap-2 p-4 pt-0">
                 <h3 className="text-sm font-semibold">
                   Campanhas ativas neste lojista
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  Em breve.
-                </p>
+                {selected.campaigns.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nenhuma campanha ativa neste lojista.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {selected.campaigns.map((campaign) => (
+                      <li key={campaign.id}>
+                        <Link
+                          href={campaign.url}
+                          className="flex flex-col rounded-md border bg-card p-3 hover:bg-accent/30"
+                          data-testid="sheet-campaign-link"
+                        >
+                          <span className="text-sm font-medium">
+                            {campaign.name}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {campaign.kind === "loyalty"
+                              ? "Cartão fidelidade"
+                              : "Campanha"}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </>
           )}

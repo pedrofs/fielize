@@ -4,6 +4,8 @@ import { TrashIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { TrixEditor } from "@/components/trix-editor"
 import type { Campaign, EntryPolicy, MerchantOption, PrizeInput } from "@/types"
 
 type Mode = "new" | "edit"
@@ -25,6 +27,9 @@ type FormShape = {
     dayCap: number | null
     merchantIds: string[]
     prizesAttributes: PrizeInput[]
+    description: string
+    terms: string
+    heroImage: File | null
   }
 }
 
@@ -45,6 +50,9 @@ export function CampaignForm({ mode, campaign, merchants }: Props) {
         threshold: p.threshold,
         position: p.position,
       })),
+      description: campaign.description ?? "",
+      terms: campaign.terms ?? "",
+      heroImage: null,
     },
   })
 
@@ -60,9 +68,9 @@ export function CampaignForm({ mode, campaign, merchants }: Props) {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (mode === "new") {
-      form.post("/organizations/campaigns")
+      form.post("/organizations/campaigns", { forceFormData: true })
     } else {
-      form.patch(`/organizations/campaigns/${campaign.id}`)
+      form.patch(`/organizations/campaigns/${campaign.id}`, { forceFormData: true })
     }
   }
 
@@ -300,6 +308,61 @@ export function CampaignForm({ mode, campaign, merchants }: Props) {
           <PlusIcon data-icon="inline-start" />
           Adicionar prêmio
         </Button>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <Label htmlFor="campaign_description">Descrição</Label>
+        <TrixEditor
+          id="campaign_description"
+          value={form.data.campaign.description}
+          onChange={(html) => update("description", html)}
+          placeholder="Conte sobre essa campanha…"
+        />
+        {form.errors["campaign.description"] && (
+          <p className="text-sm text-destructive">
+            {form.errors["campaign.description"]}
+          </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <Label htmlFor="campaign_hero_image">Imagem de capa</Label>
+        {campaign.heroImageUrl && (
+          <img
+            src={campaign.heroImageUrl}
+            alt=""
+            className="mb-2 h-32 w-full rounded-md object-cover"
+            data-testid="current-campaign-hero-image"
+          />
+        )}
+        <Input
+          id="campaign_hero_image"
+          type="file"
+          accept="image/*"
+          onChange={(e) => update("heroImage", e.target.files?.[0] ?? null)}
+        />
+        {form.errors["campaign.hero_image"] && (
+          <p className="text-sm text-destructive">
+            {form.errors["campaign.hero_image"]}
+          </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <Label htmlFor="campaign_terms">
+          Termos (opcional — herda os termos da organização)
+        </Label>
+        <TrixEditor
+          id="campaign_terms"
+          value={form.data.campaign.terms}
+          onChange={(html) => update("terms", html)}
+          placeholder="Termos específicos desta campanha…"
+        />
+        {form.errors["campaign.terms"] && (
+          <p className="text-sm text-destructive">
+            {form.errors["campaign.terms"]}
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">

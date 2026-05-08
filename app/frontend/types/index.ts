@@ -88,6 +88,9 @@ export type Campaign = {
   dayCap: number | null
   merchantIds: string[]
   prizes: Prize[]
+  description: string | null
+  terms: string | null
+  heroImageUrl: string | null
 }
 
 export type MerchantOption = {

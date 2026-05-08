@@ -14,6 +14,7 @@ Rails.application.routes.draw do
 
   scope module: :customer, as: :customer do
     get "/o/:org_slug", to: "organizations#show", as: :organization
+    get "/o/:org_slug/c/:slug", to: "organizations/campaigns#show", as: :organization_campaign
   end
 
   namespace :organizations do
