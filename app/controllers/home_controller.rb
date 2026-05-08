@@ -34,31 +34,40 @@ class HomeController < InertiaController
     }
   end
 
-  def render_organization_dashboard
-    org = current_organization
-    week = 1.week.ago
+  WINDOW_PARAMS = {
+    "days_7" => :days_7,
+    "days_30" => :days_30,
+    "all_time" => :all_time
+  }.freeze
+  DEFAULT_WINDOW = :days_30
 
-    render inertia: {
-      stats: {
-        merchants_count: org.merchants.count,
-        active_campaigns_count: org.campaigns.where(type: "OrganizationCampaign", status: "active").count,
-        customers_count: Customer.joins(:visits).where(visits: { merchant_id: org.merchants }).distinct.count,
-        visits_this_week_count: Visit.where(merchant_id: org.merchants).where("created_at > ?", week).count
-      },
-      recent_activity: Visit.includes(:customer)
-                            .where(merchant_id: org.merchants)
-                            .order(created_at: :desc)
-                            .limit(20)
-                            .map { |v| serialize_recent_visit(v) }
+  def render_organization_dashboard
+    window = WINDOW_PARAMS[params[:window]] || DEFAULT_WINDOW
+    metrics = Organization::DashboardMetrics.new(current_organization).metrics_for(window: window)
+
+    render inertia: "organizations/home/index", props: {
+      window: window.to_s,
+      metrics: {
+        new_enrollments: metrics.new_enrollments,
+        total_enrolled: metrics.total_enrolled,
+        visits: metrics.visits,
+        stamps_pending: metrics.stamps_pending,
+        stamps_confirmed: metrics.stamps_confirmed,
+        redemptions: metrics.redemptions,
+        per_campaign: metrics.per_campaign.map { |row| serialize_per_campaign(row) }
+      }
     }
   end
 
-  def serialize_recent_visit(visit)
+  def serialize_per_campaign(row)
     {
-      id: visit.id,
-      customer_name: visit.customer.name.presence || visit.customer.phone,
-      merchant_name: visit.merchant.name,
-      created_at: visit.created_at
+      id: row.campaign.id,
+      name: row.campaign.name,
+      slug: row.campaign.slug,
+      type: row.campaign.type,
+      enrollments: row.enrollments,
+      stamps: row.stamps,
+      redemptions: row.redemptions
     }
   end
 
