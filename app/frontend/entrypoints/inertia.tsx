@@ -1,4 +1,7 @@
 import { createInertiaApp } from '@inertiajs/react'
+import "trix"
+import "@rails/actiontext"
+import "trix/dist/trix.css"
 import { TooltipProvider } from '@/components/ui/tooltip'
 
 void createInertiaApp({

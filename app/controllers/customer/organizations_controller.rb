@@ -23,7 +23,11 @@ class Customer::OrganizationsController < Customer::BaseController
       id: organization.id,
       name: organization.name,
       slug: organization.slug,
-      image_url: organization.image_url
+      image_url: organization.image_url,
+      primary_color: organization.primary_color,
+      secondary_color: organization.secondary_color,
+      bio_html: organization.bio.body&.to_html,
+      hero_image_url: organization.hero_image.attached? ? rails_blob_path(organization.hero_image, only_path: true) : nil
     }
   end
 

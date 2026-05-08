@@ -20,7 +20,7 @@ class OrganizationsController < InertiaController
 
   def edit
     render inertia: "organizations/edit", props: {
-      organization: @organization.slice(:id, :name, :slug)
+      organization: serialize_organization(@organization)
     }
   end
 
@@ -39,6 +39,19 @@ class OrganizationsController < InertiaController
   end
 
   def organization_params
-    params.require(:organization).permit(:name, :slug)
+    params.require(:organization).permit(:name, :slug, :primary_color, :secondary_color, :hero_image, :bio, :terms)
+  end
+
+  def serialize_organization(organization)
+    {
+      id: organization.id,
+      name: organization.name,
+      slug: organization.slug,
+      primary_color: organization.primary_color,
+      secondary_color: organization.secondary_color,
+      bio: organization.bio.body&.to_html,
+      terms: organization.terms.body&.to_html,
+      hero_image_url: organization.hero_image.attached? ? rails_blob_path(organization.hero_image, only_path: true) : nil
+    }
   end
 end

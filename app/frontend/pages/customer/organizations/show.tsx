@@ -17,6 +17,10 @@ type Organization = {
   name: string | null
   slug: string
   imageUrl: string | null
+  primaryColor: string | null
+  secondaryColor: string | null
+  bioHtml: string | null
+  heroImageUrl: string | null
 }
 
 type Merchant = {
@@ -41,17 +45,34 @@ type Props = {
 
 function OrgHeader({ organization }: { organization: Organization }) {
   return (
-    <header className="flex flex-col items-center gap-3 pt-8 pb-6 text-center">
-      {organization.imageUrl && (
+    <header className="flex flex-col gap-4 pt-6 pb-6">
+      {organization.heroImageUrl && (
         <img
-          src={organization.imageUrl}
-          alt={organization.name ?? ""}
-          className="size-20 rounded-full object-cover"
+          src={organization.heroImageUrl}
+          alt=""
+          className="-mx-4 h-44 w-screen max-w-screen-sm object-cover sm:mx-0 sm:w-full sm:rounded-lg"
+          data-testid="org-hero-image"
         />
       )}
-      <h1 className="text-2xl font-semibold tracking-tight">
-        {organization.name}
-      </h1>
+      <div className="flex flex-col items-center gap-3 text-center">
+        {organization.imageUrl && (
+          <img
+            src={organization.imageUrl}
+            alt={organization.name ?? ""}
+            className="size-20 rounded-full border-4 border-background object-cover"
+          />
+        )}
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {organization.name}
+        </h1>
+        {organization.bioHtml && (
+          <div
+            className="prose prose-sm max-w-none text-sm text-muted-foreground"
+            data-testid="org-bio"
+            dangerouslySetInnerHTML={{ __html: organization.bioHtml }}
+          />
+        )}
+      </div>
     </header>
   )
 }
