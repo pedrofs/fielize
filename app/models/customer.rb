@@ -1,9 +1,14 @@
 # frozen_string_literal: true
 
 class Customer < ApplicationRecord
+  include Identifiable
+  include Verifiable
+
   has_many :visits, dependent: :restrict_with_exception
   has_many :stamps, dependent: :restrict_with_exception
   has_many :redemptions, dependent: :restrict_with_exception
+  has_many :enrollments, dependent: :destroy
+  has_many :campaigns, through: :enrollments
 
   before_validation :normalize_phone
 

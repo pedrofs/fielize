@@ -33,6 +33,12 @@ export type CurrentMerchant = {
   organizationId: string
 }
 
+export type CurrentCustomer = {
+  id: string
+  verified: boolean
+  enrolledCampaignIds: string[]
+}
+
 export type Breadcrumb = {
   label: string
   path: string
@@ -42,6 +48,7 @@ export type SharedProps = {
   currentUser: CurrentUser | null
   currentOrganization: CurrentOrganization | null
   currentMerchant: CurrentMerchant | null
+  currentCustomer: CurrentCustomer | null
   title: string | null
   breadcrumbs: Breadcrumb[]
 }

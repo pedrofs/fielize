@@ -13,8 +13,9 @@ Rails.application.routes.draw do
   root "home#index"
 
   scope module: :customer, as: :customer do
-    get "/o/:org_slug", to: "organizations#show", as: :organization
-    get "/o/:org_slug/c/:slug", to: "organizations/campaigns#show", as: :organization_campaign
+    get  "/o/:org_slug", to: "organizations#show", as: :organization
+    get  "/o/:org_slug/c/:slug", to: "organizations/campaigns#show", as: :organization_campaign
+    post "/o/:org_slug/c/:slug/enrollment", to: "organizations/campaigns/enrollments#create", as: :organization_campaign_enrollment
   end
 
   namespace :organizations do

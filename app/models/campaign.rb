@@ -12,6 +12,8 @@ class Campaign < ApplicationRecord
   has_many :prizes, -> { order(:position) }, dependent: :destroy
   has_many :stamps, dependent: :destroy
   has_many :redemptions, dependent: :destroy
+  has_many :enrollments, dependent: :destroy
+  has_many :enrolled_customers, through: :enrollments, source: :customer
 
   has_rich_text :description
   has_rich_text :terms
@@ -35,6 +37,22 @@ class Campaign < ApplicationRecord
   def draft?;    status == "draft";    end
   def active?;   status == "active";   end
   def ended?;    status == "ended";    end
+
+  # Idempotent on (customer, campaign): repeat calls return the existing
+  # row without creating a duplicate or re-firing the WhatsApp job.
+  # Lives on the base so OrganizationCampaign and LoyaltyCampaign share
+  # the implementation — Enrollment doesn't care about the STI subtype.
+  def enroll!(customer:)
+    enrollment = enrollments.find_or_create_by!(customer: customer) do |e|
+      e.consented_at = Time.current
+    end
+
+    if enrollment.previously_new_record? && !customer.verified?
+      WhatsAppDeliveryJob.perform_later(customer_id: customer.id)
+    end
+
+    enrollment
+  end
 
   # No `activate!` / `end!` on the base. The OrganizationCampaign lifecycle
   # (draft → active → ended) lives in OrganizationCampaign::Activatable.

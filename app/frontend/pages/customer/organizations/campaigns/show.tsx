@@ -1,7 +1,10 @@
-import type { ReactNode } from "react"
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react"
+import { useForm, usePage } from "@inertiajs/react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 type Organization = {
   id: string
@@ -62,9 +65,140 @@ function Hero({ campaign }: { campaign: Campaign }) {
   )
 }
 
+const PHONE_DIGITS_RE = /^\d{10,13}$/
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "")
+}
+
+function isPlausibleBrazilianPhone(value: string) {
+  const digits = digitsOnly(value)
+  return PHONE_DIGITS_RE.test(digits)
+}
+
+type EnrollFormProps = {
+  organizationSlug: string
+  campaignSlug: string
+  recognized: boolean
+}
+
+function EnrollForm({ organizationSlug, campaignSlug, recognized }: EnrollFormProps) {
+  const { data, setData, post, processing, errors } = useForm({
+    enrollment: { phone: "" },
+  })
+  const [clientError, setClientError] = useState<string | null>(null)
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!recognized && !isPlausibleBrazilianPhone(data.enrollment.phone)) {
+      setClientError("Informe um número de WhatsApp válido com DDD.")
+      return
+    }
+    setClientError(null)
+    post(`/o/${organizationSlug}/c/${campaignSlug}/enrollment`)
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-3" data-testid="enroll-form">
+      {!recognized && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="enrollment-phone">WhatsApp</Label>
+          <Input
+            id="enrollment-phone"
+            name="enrollment[phone]"
+            type="tel"
+            inputMode="tel"
+            placeholder="(53) 99999-1111"
+            value={data.enrollment.phone}
+            onChange={(e) => setData("enrollment", { phone: e.target.value })}
+            required
+            data-testid="enroll-phone-input"
+          />
+          {(clientError || errors["enrollment.phone"]) && (
+            <p className="text-xs text-destructive" data-testid="enroll-error">
+              {clientError ?? errors["enrollment.phone"]}
+            </p>
+          )}
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={processing}
+        data-testid="enroll-cta"
+      >
+        Quero participar
+      </Button>
+
+      <p className="text-xs text-muted-foreground">
+        Ao clicar você concorda com os{" "}
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noreferrer"
+          className="underline underline-offset-2"
+          data-testid="enroll-privacy-link"
+        >
+          termos de privacidade
+        </a>{" "}
+        (LGPD).
+      </p>
+    </form>
+  )
+}
+
+function EnrolledState() {
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-lg border bg-card p-4"
+      data-testid="enrolled-state"
+    >
+      <p className="text-sm font-medium">Você está inscrito 🎉</p>
+      <p className="text-sm text-muted-foreground">
+        Visite uma das lojas participantes para ganhar seu primeiro selo.
+      </p>
+    </div>
+  )
+}
+
+function FlashToast({ message }: { message: string }) {
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setVisible(false), 5000)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  if (!visible) return null
+  return (
+    <div
+      role="status"
+      className="fixed inset-x-0 top-3 z-50 mx-auto max-w-screen-sm px-4"
+      data-testid="flash-toast"
+    >
+      <div className="rounded-md bg-foreground/95 px-4 py-3 text-sm text-background shadow-lg">
+        {message}
+      </div>
+    </div>
+  )
+}
+
 export default function CustomerCampaignShow({ organization, campaign }: Props) {
+  const page = usePage()
+  const currentCustomer = page.props.currentCustomer
+  const flash = page.flash
+
+  const isEnrolled = useMemo(() => {
+    if (!currentCustomer) return false
+    return currentCustomer.enrolledCampaignIds.includes(campaign.id)
+  }, [currentCustomer, campaign.id])
+
   return (
     <article className="flex flex-col gap-6 pb-10">
+      {flash?.notice && <FlashToast message={flash.notice} />}
+
       <Hero campaign={campaign} />
 
       <header className="flex flex-col gap-2">
@@ -126,15 +260,15 @@ export default function CustomerCampaignShow({ organization, campaign }: Props) 
         </section>
       )}
 
-      <Button
-        type="button"
-        size="lg"
-        className="w-full"
-        data-testid="enroll-cta"
-        disabled
-      >
-        Quero participar
-      </Button>
+      {isEnrolled ? (
+        <EnrolledState />
+      ) : (
+        <EnrollForm
+          organizationSlug={organization.slug}
+          campaignSlug={campaign.slug}
+          recognized={Boolean(currentCustomer)}
+        />
+      )}
 
       {campaign.termsHtml && (
         <section

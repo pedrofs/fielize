@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
-import { Link } from "@inertiajs/react"
+import { Link, usePage } from "@inertiajs/react"
 import { MapContainer, Marker, TileLayer } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
@@ -152,12 +152,19 @@ function MerchantsMap({
   )
 }
 
-function CampaignCardItem({ campaign }: { campaign: CampaignCard }) {
+function CampaignCardItem({
+  campaign,
+  enrolled,
+}: {
+  campaign: CampaignCard
+  enrolled: boolean
+}) {
   return (
     <Link
       href={campaign.url}
       className="flex flex-col overflow-hidden rounded-lg border bg-card transition-colors hover:bg-accent/30"
       data-testid="campaign-card"
+      data-enrolled={enrolled || undefined}
     >
       {campaign.heroImageUrl ? (
         <img
@@ -173,12 +180,28 @@ function CampaignCardItem({ campaign }: { campaign: CampaignCard }) {
         />
       )}
       <div className="flex flex-col gap-1 p-4">
-        <span className="font-semibold">{campaign.name}</span>
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-semibold">{campaign.name}</span>
+          {enrolled && (
+            <span
+              className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
+              data-testid="enrolled-badge"
+            >
+              Inscrito
+            </span>
+          )}
+        </div>
         {campaign.prizeHighlight && (
           <span className="text-sm text-muted-foreground">
             Prêmio: {campaign.prizeHighlight}
           </span>
         )}
+        <span
+          className="mt-1 text-sm font-medium text-primary"
+          data-testid="campaign-card-cta"
+        >
+          {enrolled ? "Continuar →" : "Inscrever-se →"}
+        </span>
       </div>
     </Link>
   )
@@ -192,6 +215,11 @@ export default function CustomerOrganizationShow({
   emptyState,
 }: Props) {
   const [selected, setSelected] = useState<Merchant | null>(null)
+  const { props } = usePage()
+  const enrolledIds = useMemo(
+    () => new Set(props.currentCustomer?.enrolledCampaignIds ?? []),
+    [props.currentCustomer],
+  )
 
   const mappableMerchants = useMemo(
     () =>
@@ -238,7 +266,10 @@ export default function CustomerOrganizationShow({
           <ul className="flex flex-col gap-3">
             {campaigns.map((campaign) => (
               <li key={campaign.id}>
-                <CampaignCardItem campaign={campaign} />
+                <CampaignCardItem
+                  campaign={campaign}
+                  enrolled={enrolledIds.has(campaign.id)}
+                />
               </li>
             ))}
           </ul>

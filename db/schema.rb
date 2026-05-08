@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_08_203653) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_08_215718) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -92,6 +92,17 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_08_203653) do
     t.datetime "updated_at", null: false
     t.datetime "verified_at"
     t.index ["phone"], name: "index_customers_on_phone", unique: true
+  end
+
+  create_table "enrollments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "campaign_id", null: false
+    t.datetime "consented_at", null: false
+    t.datetime "created_at", null: false
+    t.uuid "customer_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["campaign_id"], name: "index_enrollments_on_campaign_id"
+    t.index ["customer_id", "campaign_id"], name: "index_enrollments_on_customer_id_and_campaign_id", unique: true
+    t.index ["customer_id"], name: "index_enrollments_on_customer_id"
   end
 
   create_table "invitations", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -236,6 +247,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_08_203653) do
   add_foreign_key "campaign_merchants", "merchants"
   add_foreign_key "campaigns", "merchants"
   add_foreign_key "campaigns", "organizations"
+  add_foreign_key "enrollments", "campaigns"
+  add_foreign_key "enrollments", "customers"
   add_foreign_key "invitations", "merchants"
   add_foreign_key "invitations", "organizations"
   add_foreign_key "invitations", "users", column: "invited_by_id"
