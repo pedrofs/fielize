@@ -19,7 +19,13 @@ Rails.application.routes.draw do
 
     get  "/v/:token", to: "verifications#show", as: :verification, constraints: { token: %r{[^/]+} }, format: false
     post "/verification_requests", to: "verification_requests#create", as: :verification_requests
+
+    get    "/me",                       to: "profile#show",                           as: :profile
+    delete "/me/session",               to: "sessions#destroy",                       as: :session
+    post   "/me/verification_requests", to: "profile/verification_requests#create",   as: :profile_verification_requests
   end
+
+  get "/manifest.json", to: "pwa#manifest", as: :pwa_manifest
 
   namespace :organizations do
     resources :merchants do

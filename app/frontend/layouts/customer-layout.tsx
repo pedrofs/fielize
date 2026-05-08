@@ -1,6 +1,8 @@
 import { Head, usePage } from "@inertiajs/react"
 import type { CSSProperties, ReactNode } from "react"
 
+import { InstallBanner } from "@/components/install-banner"
+
 type OrgBranding = {
   primaryColor?: string | null
   secondaryColor?: string | null
@@ -9,6 +11,8 @@ type OrgBranding = {
 type LayoutPageProps = {
   organization?: OrgBranding
 }
+
+const DEFAULT_THEME_COLOR = "#0f172a"
 
 function isHex(color: unknown): color is string {
   return typeof color === "string" && /^#[0-9a-fA-F]{6}$/.test(color)
@@ -43,9 +47,18 @@ export function CustomerLayout({ children }: { children: ReactNode }) {
     themeVars["--accent-foreground"] = pickForeground(secondary)
   }
 
+  const themeColor = primary ?? DEFAULT_THEME_COLOR
+
   return (
     <>
-      <Head title={title ?? undefined} />
+      <Head title={title ?? undefined}>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        />
+        <meta name="theme-color" content={themeColor} />
+        <link rel="manifest" href="/manifest.json" />
+      </Head>
       <div
         className="min-h-screen bg-background text-foreground"
         style={themeVars as CSSProperties}
@@ -54,6 +67,7 @@ export function CustomerLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex min-h-screen max-w-screen-sm flex-col px-4 pb-8">
           {children}
         </div>
+        <InstallBanner />
       </div>
     </>
   )
