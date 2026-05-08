@@ -6,7 +6,13 @@ class Merchant
 
     included do
       geocoded_by :address
-      after_validation :geocode, if: :address_changed?
+      after_validation :geocode, if: :should_auto_geocode?
+    end
+
+    private
+
+    def should_auto_geocode?
+      address_changed? && !latitude_changed? && !longitude_changed?
     end
   end
 end

@@ -16,8 +16,8 @@ class SluggableTest < ActiveSupport::TestCase
     org_a = Organization.create!(name: "Org C1")
     org_b = Organization.create!(name: "Org C2")
 
-    a = Merchant.create!(organization: org_a, name: "Twin")
-    b = Merchant.create!(organization: org_b, name: "Twin")
+    a = Merchant.create!(organization: org_a, name: "Twin", latitude: 0, longitude: 0)
+    b = Merchant.create!(organization: org_b, name: "Twin", latitude: 0, longitude: 0)
 
     assert_equal "twin", a.slug
     assert_equal "twin-2", b.slug

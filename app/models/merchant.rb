@@ -15,6 +15,7 @@ class Merchant < ApplicationRecord
   has_many :users, through: :memberships
 
   validates :name, presence: true
+  validates :latitude, :longitude, presence: true
 
   def confirm_stamps(code:)
     Stamp.transaction do

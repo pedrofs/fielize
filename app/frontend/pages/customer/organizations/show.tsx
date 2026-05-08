@@ -1,6 +1,16 @@
 import type { ReactNode } from "react"
+import { useMemo, useState } from "react"
+import { MapContainer, Marker, TileLayer } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
+import { defaultIcon } from "@/lib/leaflet-icon"
 
 type Organization = {
   id: string
@@ -13,11 +23,19 @@ type Merchant = {
   id: string
   name: string
   address: string | null
+  latitude: number | null
+  longitude: number | null
 }
+
+type MapCenter = {
+  latitude: number
+  longitude: number
+} | null
 
 type Props = {
   organization: Organization
   merchants: Merchant[]
+  mapCenter: MapCenter
   emptyState: boolean
 }
 
@@ -38,11 +56,78 @@ function OrgHeader({ organization }: { organization: Organization }) {
   )
 }
 
+function MapsLink({ merchant }: { merchant: Merchant }) {
+  if (!merchant.address) return null
+  const href =
+    merchant.latitude != null && merchant.longitude != null
+      ? `https://www.google.com/maps/search/?api=1&query=${merchant.latitude},${merchant.longitude}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(merchant.address)}`
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-sm text-primary underline-offset-4 hover:underline"
+    >
+      {merchant.address}
+    </a>
+  )
+}
+
+function MerchantsMap({
+  merchants,
+  center,
+  onSelect,
+}: {
+  merchants: Merchant[]
+  center: { latitude: number; longitude: number }
+  onSelect: (merchant: Merchant) => void
+}) {
+  return (
+    <div
+      className="h-64 w-full overflow-hidden rounded-lg border"
+      data-testid="merchants-map"
+    >
+      <MapContainer
+        center={[center.latitude, center.longitude]}
+        zoom={13}
+        scrollWheelZoom={false}
+        style={{ height: "100%", width: "100%" }}
+      >
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {merchants.map((merchant) => (
+          <Marker
+            key={merchant.id}
+            position={[merchant.latitude!, merchant.longitude!]}
+            icon={defaultIcon}
+            eventHandlers={{ click: () => onSelect(merchant) }}
+          />
+        ))}
+      </MapContainer>
+    </div>
+  )
+}
+
 export default function CustomerOrganizationShow({
   organization,
   merchants,
+  mapCenter,
   emptyState,
 }: Props) {
+  const [selected, setSelected] = useState<Merchant | null>(null)
+
+  const mappableMerchants = useMemo(
+    () =>
+      merchants.filter(
+        (m): m is Merchant & { latitude: number; longitude: number } =>
+          m.latitude != null && m.longitude != null,
+      ),
+    [merchants],
+  )
+
   if (emptyState) {
     return (
       <>
@@ -62,6 +147,23 @@ export default function CustomerOrganizationShow({
   return (
     <>
       <OrgHeader organization={organization} />
+
+      <section className="flex flex-col gap-3 pb-6">
+        {mappableMerchants.length > 0 && mapCenter ? (
+          <MerchantsMap
+            merchants={mappableMerchants}
+            center={mapCenter}
+            onSelect={setSelected}
+          />
+        ) : (
+          <div
+            className="flex h-32 items-center justify-center rounded-lg border bg-muted/40 text-sm text-muted-foreground"
+            data-testid="map-placeholder"
+          >
+            Localizações em breve
+          </div>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Lojistas participantes</h2>
@@ -85,6 +187,36 @@ export default function CustomerOrganizationShow({
           </ul>
         )}
       </section>
+
+      <Sheet
+        open={selected !== null}
+        onOpenChange={(open) => !open && setSelected(null)}
+      >
+        <SheetContent side="bottom" data-testid="merchant-sheet">
+          {selected && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{selected.name}</SheetTitle>
+                {selected.address && (
+                  <SheetDescription asChild>
+                    <span>
+                      <MapsLink merchant={selected} />
+                    </span>
+                  </SheetDescription>
+                )}
+              </SheetHeader>
+              <div className="flex flex-col gap-1 p-4 pt-0">
+                <h3 className="text-sm font-semibold">
+                  Campanhas ativas neste lojista
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Em breve.
+                </p>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </>
   )
 }

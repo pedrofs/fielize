@@ -16,7 +16,7 @@ class OrganizationTest < ActiveSupport::TestCase
 
   test "destroying an organization cascades to merchants and campaigns" do
     org = Organization.create!(name: "Destroy A")
-    merchant = org.merchants.create!(name: "M")
+    merchant = org.merchants.create!(name: "M", latitude: 0, longitude: 0)
     campaign = org.organization_campaigns.create!(
       name: "Camp", starts_at: 1.day.from_now, ends_at: 1.month.from_now,
       entry_policy: "simple"

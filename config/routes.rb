@@ -21,6 +21,10 @@ Rails.application.routes.draw do
       resources :invitations, only: :create, module: :merchants
     end
 
+    namespace :merchants do
+      resources :geocodings, only: :create
+    end
+
     resources :campaigns do
       resource :activation,  only: :create, module: :campaigns
       resource :termination, only: :create, module: :campaigns

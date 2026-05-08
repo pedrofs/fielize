@@ -6,10 +6,12 @@ class Customer::OrganizationsController < Customer::BaseController
 
     merchants = @organization.merchants.order(:name).map { |m| serialize_merchant(m) }
     has_active_campaigns = @organization.campaigns.active.exists?
+    mappable = merchants.select { |m| m[:latitude] && m[:longitude] }
 
     render inertia: "customer/organizations/show", props: {
       organization: serialize_organization(@organization),
       merchants: merchants,
+      map_center: map_center_for(mappable),
       empty_state: merchants.empty? && !has_active_campaigns
     }
   end
@@ -29,7 +31,18 @@ class Customer::OrganizationsController < Customer::BaseController
     {
       id: merchant.id,
       name: merchant.name,
-      address: merchant.address
+      address: merchant.address,
+      latitude: merchant.latitude&.to_f,
+      longitude: merchant.longitude&.to_f
+    }
+  end
+
+  def map_center_for(mappable)
+    return nil if mappable.empty?
+
+    {
+      latitude: mappable.sum { |m| m[:latitude] } / mappable.size,
+      longitude: mappable.sum { |m| m[:longitude] } / mappable.size
     }
   end
 end

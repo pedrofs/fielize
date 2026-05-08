@@ -52,4 +52,16 @@ class Merchant::GeocodingTest < ActiveSupport::TestCase
     assert_in_delta(-31.7654, merchant.latitude.to_f, 0.0001)
     assert_in_delta(-52.3376, merchant.longitude.to_f, 0.0001)
   end
+
+  test "manual coordinates win when address and lat/lng both change in same save" do
+    merchant = merchants(:one)
+    merchant.update!(
+      address: "Rua das Flores, 100, Jaguarão",
+      latitude: -31.234,
+      longitude: -53.456
+    )
+
+    assert_in_delta(-31.234, merchant.latitude.to_f, 0.0001)
+    assert_in_delta(-53.456, merchant.longitude.to_f, 0.0001)
+  end
 end

@@ -102,6 +102,6 @@ class OrganizationCampaignNestedAttrsTest < ActiveSupport::TestCase
   private
 
   def current_organization_merchants_create(name:)
-    organizations(:one).merchants.create!(name: name)
+    organizations(:one).merchants.create!(name: name, latitude: 0, longitude: 0)
   end
 end

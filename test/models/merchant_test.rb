@@ -13,6 +13,20 @@ class MerchantTest < ActiveSupport::TestCase
     assert_includes merchant.errors[:organization], "must exist"
   end
 
+  test "latitude is required" do
+    merchant = Merchant.new(name: "Solo Shop", organization: organizations(:one),
+                            longitude: -53.0)
+    refute merchant.valid?
+    assert_includes merchant.errors[:latitude], "can't be blank"
+  end
+
+  test "longitude is required" do
+    merchant = Merchant.new(name: "Solo Shop", organization: organizations(:one),
+                            latitude: -32.0)
+    refute merchant.valid?
+    assert_includes merchant.errors[:longitude], "can't be blank"
+  end
+
   test "organization_campaigns reaches through campaign_merchants" do
     merchant = merchants(:one)
     assert_includes merchant.organization_campaigns, campaigns(:pasaporte)
