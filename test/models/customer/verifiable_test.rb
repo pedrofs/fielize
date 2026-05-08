@@ -11,23 +11,29 @@ class Customer::VerifiableTest < ActiveSupport::TestCase
     refute @customer.verified?
     token = @customer.generate_verification_token
 
-    assert @customer.verify_with(token)
+    result = @customer.verify_with(token)
+
+    assert result.valid?
     assert @customer.reload.verified?
   end
 
-  test "verify_with rejects a tampered token" do
+  test "verify_with reports a tampered token as :invalid" do
     token = @customer.generate_verification_token
     tampered = token.sub(/.$/, "x")
 
-    refute @customer.verify_with(tampered)
+    result = @customer.verify_with(tampered)
+
+    assert result.invalid?
     refute @customer.reload.verified?
   end
 
-  test "verify_with rejects an expired token" do
+  test "verify_with reports an expired token as :expired and does not verify" do
     token = @customer.generate_verification_token
 
     travel (Customer::VerificationToken::TTL + 1.minute) do
-      refute @customer.verify_with(token)
+      result = @customer.verify_with(token)
+
+      assert result.expired?
       refute @customer.reload.verified?
     end
   end
@@ -35,7 +41,9 @@ class Customer::VerifiableTest < ActiveSupport::TestCase
   test "verify_with refuses a token issued for a different customer" do
     foreign_token = customers(:joao).generate_verification_token
 
-    refute @customer.verify_with(foreign_token)
+    result = @customer.verify_with(foreign_token)
+
+    assert result.invalid?
     refute @customer.reload.verified?
   end
 
@@ -44,7 +52,14 @@ class Customer::VerifiableTest < ActiveSupport::TestCase
     original = already_verified.verified_at
     token = already_verified.generate_verification_token
 
-    assert already_verified.verify_with(token)
+    result = already_verified.verify_with(token)
+
+    assert result.valid?
     assert_equal original.to_i, already_verified.reload.verified_at.to_i
+  end
+
+  test "verify_with reports a blank token as :invalid" do
+    assert @customer.verify_with(nil).invalid?
+    assert @customer.verify_with("").invalid?
   end
 end

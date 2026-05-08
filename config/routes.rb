@@ -16,6 +16,9 @@ Rails.application.routes.draw do
     get  "/o/:org_slug", to: "organizations#show", as: :organization
     get  "/o/:org_slug/c/:slug", to: "organizations/campaigns#show", as: :organization_campaign
     post "/o/:org_slug/c/:slug/enrollment", to: "organizations/campaigns/enrollments#create", as: :organization_campaign_enrollment
+
+    get  "/v/:token", to: "verifications#show", as: :verification, constraints: { token: %r{[^/]+} }, format: false
+    post "/verification_requests", to: "verification_requests#create", as: :verification_requests
   end
 
   namespace :organizations do

@@ -2,11 +2,12 @@
 
 # Phone-verification token generation + verification for Customer.
 #
-# The full `verify_with` flow lands in Slice 6 (the WhatsApp link
-# handler); this slice exercises only `generate_verification_token`,
-# which the `WhatsAppDeliveryJob` calls to embed a signed token in
-# the message body. The PORO collaborator (`Customer::VerificationToken`)
-# is internal — call sites use the model.
+# `verify_with(token)` returns a Result the caller branches on:
+# `.valid?` (signature good and within TTL — Customer's `verified_at`
+# was set), `.expired?` (signature good but past TTL — re-issue offered)
+# or `.invalid?` (missing, malformed, tampered, or for a different
+# Customer). The split lets the controller render distinct pages for
+# expired vs forged tokens without leaking which one applied.
 module Customer::Verifiable
   extend ActiveSupport::Concern
 
@@ -15,10 +16,12 @@ module Customer::Verifiable
   end
 
   def verify_with(token)
-    customer_id = Customer::VerificationToken.verify(token)
-    return false unless customer_id == id
+    decoded = Customer::VerificationToken.decode(token)
+    return decoded if decoded.invalid?
+    return Customer::VerificationToken::Result.new(status: :invalid) unless decoded.customer_id == id
+    return decoded if decoded.expired?
 
     update!(verified_at: Time.current) unless verified?
-    true
+    decoded
   end
 end

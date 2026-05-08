@@ -43,6 +43,14 @@ module Customer::Identifiable
       cookie_jar.delete(COOKIE_KEY)
     end
 
+    # Attaches an already-resolved Customer to the device. Used by the
+    # verification link tap, where the Customer is identified by a
+    # signed token rather than a phone form, but should still be
+    # recognized by the cookie on subsequent visits.
+    def attach_to_device(customer:, cookie_jar:)
+      write_cookie(customer, cookie_jar)
+    end
+
     private
 
     def write_cookie(customer, cookie_jar)
