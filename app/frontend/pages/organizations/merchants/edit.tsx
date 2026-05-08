@@ -6,9 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 type Merchant = {
-  id: number
+  id: string
   name: string
-  organizationId: number
+  address: string | null
+  latitude: number | null
+  longitude: number | null
+  organizationId: string
 }
 
 type Props = {
@@ -17,7 +20,10 @@ type Props = {
 
 export default function EditMerchant({ merchant }: Props) {
   const form = useForm({
-    merchant: { name: merchant.name },
+    merchant: {
+      name: merchant.name,
+      address: merchant.address ?? "",
+    },
   })
 
   const onSubmit = (e: FormEvent) => {
@@ -35,7 +41,7 @@ export default function EditMerchant({ merchant }: Props) {
           id="merchant_name"
           value={form.data.merchant.name}
           onChange={(e) =>
-            form.setData("merchant", { name: e.target.value })
+            form.setData("merchant", { ...form.data.merchant, name: e.target.value })
           }
           aria-invalid={!!form.errors["merchant.name"]}
           required
@@ -44,6 +50,31 @@ export default function EditMerchant({ merchant }: Props) {
         {form.errors["merchant.name"] && (
           <p className="text-sm text-destructive">
             {form.errors["merchant.name"]}
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="merchant_address" className="text-sm font-medium">
+          Endereço
+        </label>
+        <Input
+          id="merchant_address"
+          value={form.data.merchant.address}
+          onChange={(e) =>
+            form.setData("merchant", { ...form.data.merchant, address: e.target.value })
+          }
+          aria-invalid={!!form.errors["merchant.address"]}
+          placeholder="Rua, número, bairro, cidade"
+        />
+        {form.errors["merchant.address"] && (
+          <p className="text-sm text-destructive">
+            {form.errors["merchant.address"]}
+          </p>
+        )}
+        {merchant.latitude && merchant.longitude && (
+          <p className="text-xs text-muted-foreground">
+            Coordenadas: {merchant.latitude.toFixed(4)}, {merchant.longitude.toFixed(4)}
           </p>
         )}
       </div>

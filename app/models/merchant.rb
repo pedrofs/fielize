@@ -2,6 +2,8 @@ class Merchant < ApplicationRecord
   include Sluggable
   sluggable from: :name
 
+  include Geocoding
+
   belongs_to :organization
   has_many :visits, dependent: :restrict_with_exception
   has_many :stamps, dependent: :destroy

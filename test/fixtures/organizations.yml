@@ -7,3 +7,8 @@ two:
   name: CDL Pelotas
   image_url: https://example.com/pelotas.png
   slug: cdl-pelotas
+
+empty:
+  name: CDL Bagé
+  image_url: https://example.com/bage.png
+  slug: cdl-bage

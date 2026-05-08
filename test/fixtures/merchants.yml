@@ -4,8 +4,14 @@ one:
   name: Calzados Ricardo
   organization: one
   slug: calzados-ricardo
+  address: Rua General Osório, 100, Jaguarão
+  latitude: -32.5614
+  longitude: -53.3756
 
 two:
   name: Moda Río Branco
   organization: two
   slug: moda-rio-branco
+  address: Av. Bento Gonçalves, 500, Pelotas
+  latitude: -31.7654
+  longitude: -52.3376

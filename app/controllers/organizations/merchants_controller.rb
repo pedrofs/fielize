@@ -34,7 +34,7 @@ class Organizations::MerchantsController < Organizations::BaseController
     set_title "Novo lojista"
     add_breadcrumb label: "Novo", path: new_organizations_merchant_path
 
-    render inertia: { merchant: { name: "" } }
+    render inertia: { merchant: { name: "", address: "" } }
   end
 
   def create
@@ -74,13 +74,16 @@ class Organizations::MerchantsController < Organizations::BaseController
   end
 
   def merchant_params
-    params.expect(merchant: [ :name ])
+    params.expect(merchant: [ :name, :address ])
   end
 
   def serialize(merchant)
     {
       id: merchant.id,
       name: merchant.name,
+      address: merchant.address,
+      latitude: merchant.latitude,
+      longitude: merchant.longitude,
       organization_id: merchant.organization_id,
       created_at: merchant.created_at
     }

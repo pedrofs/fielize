@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_05_144822) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_08_161647) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -75,7 +75,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_05_144822) do
   end
 
   create_table "merchants", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "address"
     t.datetime "created_at", null: false
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
     t.string "name", null: false
     t.uuid "organization_id", null: false
     t.string "slug", null: false

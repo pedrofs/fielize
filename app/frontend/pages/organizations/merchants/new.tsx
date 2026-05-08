@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 
 export default function NewMerchant() {
   const form = useForm({
-    merchant: { name: "" },
+    merchant: { name: "", address: "" },
   })
 
   const onSubmit = (e: FormEvent) => {
@@ -25,7 +25,7 @@ export default function NewMerchant() {
           id="merchant_name"
           value={form.data.merchant.name}
           onChange={(e) =>
-            form.setData("merchant", { name: e.target.value })
+            form.setData("merchant", { ...form.data.merchant, name: e.target.value })
           }
           aria-invalid={!!form.errors["merchant.name"]}
           required
@@ -36,6 +36,29 @@ export default function NewMerchant() {
             {form.errors["merchant.name"]}
           </p>
         )}
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="merchant_address" className="text-sm font-medium">
+          Endereço
+        </label>
+        <Input
+          id="merchant_address"
+          value={form.data.merchant.address}
+          onChange={(e) =>
+            form.setData("merchant", { ...form.data.merchant, address: e.target.value })
+          }
+          aria-invalid={!!form.errors["merchant.address"]}
+          placeholder="Rua, número, bairro, cidade"
+        />
+        {form.errors["merchant.address"] && (
+          <p className="text-sm text-destructive">
+            {form.errors["merchant.address"]}
+          </p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          A localização no mapa será preenchida automaticamente após salvar.
+        </p>
       </div>
 
       <div className="flex gap-2">

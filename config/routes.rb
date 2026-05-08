@@ -12,6 +12,10 @@ Rails.application.routes.draw do
 
   root "home#index"
 
+  scope module: :customer, as: :customer do
+    get "/o/:org_slug", to: "organizations#show", as: :organization
+  end
+
   namespace :organizations do
     resources :merchants do
       resources :invitations, only: :create, module: :merchants

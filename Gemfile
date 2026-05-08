@@ -17,6 +17,10 @@ gem "jbuilder"
 # E.164 phone normalization + validation. Used by Customer.
 gem "phonelib"
 
+# Address → lat/lng geocoding for Merchants. Backend selectable via
+# GEOCODER_LOOKUP env var; default is Nominatim (free, OSM-backed).
+gem "geocoder"
+
 # QR code generation as SVG/PNG. Used by merchant detail pages
 # (printable QR for `/s/:merchant_slug`) and admin exports.
 gem "rqrcode"
