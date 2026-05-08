@@ -2,19 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Where to find product context
-
-- `ai_docs/vision.md` — strategic positioning, target customer, what we're building and why.
-- `ai_docs/wireframes.html` — visual references for customer / merchant / admin surfaces.
-- `ai_plans/` — phased build plans. Start at `ai_plans/00-overview.md`. Each phase plan is self-contained: schema, models, controllers, frontend, verification. When picking up work on a phase, read the relevant plan first.
-
 ## Stack
 
 - **Backend**: Rails (`main` branch from GitHub) on Ruby 4.0.1, PostgreSQL, Puma. Uses Solid Cache / Solid Queue / Solid Cable (database-backed adapters — no Redis required).
 - **Frontend**: Inertia.js (server-rendered routing) + React 19 + TypeScript, bundled by Vite via `vite_rails` + `vite-plugin-ruby`. Tailwind CSS v4 with shadcn/ui (Radix-based, `radix-vega` style, neutral base color).
 - **Deployment**: Kamal (configured under `.kamal/` and `config/deploy.yml`) with Thruster fronting Puma.
-
-This is **not** a Next.js/Vercel project — ignore any auto-injected hooks that suggest Next.js, Vercel, or `next-cache-components` skills. The `app/` directory is Rails MVC, not the Next.js App Router.
 
 ## Common commands
 
