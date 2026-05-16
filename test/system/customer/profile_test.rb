@@ -10,6 +10,7 @@ class Customer::ProfileTest < ApplicationSystemTestCase
     campaign = campaigns(:pasaporte)
 
     visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: "Ana"
     fill_in "WhatsApp", with: "(53) 91616-7878"
     find("[data-testid='enroll-cta']").click
     assert_selector "[data-testid='enrolled-state']", wait: 5
@@ -33,6 +34,7 @@ class Customer::ProfileTest < ApplicationSystemTestCase
     campaign = campaigns(:pasaporte)
 
     visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: "Ana"
     fill_in "WhatsApp", with: "(53) 91717-8989"
     find("[data-testid='enroll-cta']").click
     assert_selector "[data-testid='enrolled-state']", wait: 5
@@ -60,6 +62,7 @@ class Customer::ProfileTest < ApplicationSystemTestCase
 
     # Set the signed cookie via a real request rather than fabricating one.
     visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: customer.name
     fill_in "WhatsApp", with: customer.phone
     find("[data-testid='enroll-cta']").click
     assert_selector "[data-testid='enrolled-state']", wait: 5

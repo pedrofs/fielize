@@ -106,7 +106,7 @@ class Customer::MerchantsControllerTest < ActionDispatch::IntegrationTest
   # initial state.
   def sign_in_as_customer(customer)
     post customer_organization_campaign_enrollment_path(@org_campaign.organization.slug, @org_campaign.slug),
-         params: { enrollment: { phone: customer.phone } }
+         params: { enrollment: { name: customer.name, phone: customer.phone } }
     Enrollment.where(customer: customer).delete_all
   end
 end

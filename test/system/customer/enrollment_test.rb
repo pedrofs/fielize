@@ -17,6 +17,7 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
     assert_difference -> { Enrollment.count }, +1 do
       assert_difference -> { Customer.count }, +1 do
         assert_enqueued_with(job: WhatsAppDeliveryJob) do
+          fill_in "Nome", with: "Ana Souza"
           fill_in "WhatsApp", with: phone
           find("[data-testid='enroll-cta']").click
           assert_selector "[data-testid='enrolled-state']", wait: 5
@@ -26,6 +27,7 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
 
     customer = Customer.find_by(phone: "+5553912123434")
     assert_not_nil customer
+    assert_equal "Ana Souza", customer.name
     assert Enrollment.exists?(customer: customer, campaign: campaign)
 
     assert_selector "[data-testid='flash-toast']"
@@ -39,6 +41,7 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
 
     visit "/o/#{organization.slug}/c/#{campaign.slug}"
 
+    fill_in "Nome", with: "Ana"
     fill_in "WhatsApp", with: "12"
     find("[data-testid='enroll-cta']").click
 
@@ -70,6 +73,7 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
     campaign_b.activate!
 
     visit "/o/#{organization_a.slug}/c/#{campaign_a.slug}"
+    fill_in "Nome", with: "Ana"
     fill_in "WhatsApp", with: "(53) 91313-2424"
     find("[data-testid='enroll-cta']").click
     assert_selector "[data-testid='enrolled-state']", wait: 5
@@ -93,6 +97,7 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
     campaign = campaigns(:pasaporte)
 
     visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: "Ana"
     fill_in "WhatsApp", with: "(53) 91414-5454"
     find("[data-testid='enroll-cta']").click
     assert_selector "[data-testid='enrolled-state']", wait: 5

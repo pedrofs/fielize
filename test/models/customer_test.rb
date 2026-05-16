@@ -2,7 +2,7 @@ require "test_helper"
 
 class CustomerTest < ActiveSupport::TestCase
   setup do
-    @valid_attrs = { phone: "+5511987654321", lgpd_opted_in_at: Time.current }
+    @valid_attrs = { phone: "+5511987654321", name: "Maria", lgpd_opted_in_at: Time.current }
   end
 
   test "creates with valid attributes" do
@@ -14,6 +14,27 @@ class CustomerTest < ActiveSupport::TestCase
     customer = Customer.new(@valid_attrs.merge(phone: nil))
     refute customer.valid?
     assert_includes customer.errors[:phone], "can't be blank"
+  end
+
+  test "name is required" do
+    customer = Customer.new(@valid_attrs.merge(name: nil))
+    refute customer.valid?
+    assert_includes customer.errors[:name], "can't be blank"
+  end
+
+  test "display_name returns the Customer's name" do
+    customer = Customer.new(@valid_attrs.merge(name: "Maria Silva"))
+    assert_equal "Maria Silva", customer.display_name
+  end
+
+  test "phone_masked obscures the middle digits while keeping the last 4" do
+    customer = Customer.new(@valid_attrs.merge(phone: "+5553988887777"))
+    assert_equal "+55 ** *****-7777", customer.phone_masked
+  end
+
+  test "phone_masked returns nil for blank phone" do
+    customer = Customer.new(@valid_attrs.merge(phone: nil))
+    assert_nil customer.phone_masked
   end
 
   test "lgpd_opted_in_at is required" do

@@ -6,8 +6,8 @@ class Organizations::DashboardTest < ApplicationSystemTestCase
   setup do
     @org = organizations(:one)
     @merchant = merchants(:one)
-    @customer_old = Customer.create!(phone: "+5553911110000", lgpd_opted_in_at: 60.days.ago)
-    @customer_recent = Customer.create!(phone: "+5553911110001", lgpd_opted_in_at: 1.day.ago)
+    @customer_old = Customer.create!(name: "Ana", phone: "+5553911110000", lgpd_opted_in_at: 60.days.ago)
+    @customer_recent = Customer.create!(name: "Beto", phone: "+5553911110001", lgpd_opted_in_at: 1.day.ago)
 
     @campaign = campaigns(:pasaporte)
 

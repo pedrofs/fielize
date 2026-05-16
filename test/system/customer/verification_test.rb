@@ -49,6 +49,7 @@ class Customer::VerificationTest < ApplicationSystemTestCase
     campaign = campaigns(:pasaporte)
 
     visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: "Ana"
     fill_in "WhatsApp", with: "(53) 91515-6767"
     find("[data-testid='enroll-cta']").click
     assert_selector "[data-testid='enrolled-state']", wait: 5

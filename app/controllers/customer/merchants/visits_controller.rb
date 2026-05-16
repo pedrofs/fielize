@@ -10,10 +10,22 @@ class Customer::Merchants::VisitsController < Customer::BaseController
   def create
     merchant = Merchant.find_by!(slug: params[:merchant_slug])
 
-    customer = @current_customer || Customer.identify_for(
-      phone: visit_params[:phone],
-      cookie_jar: cookies
-    )
+    if @current_customer
+      customer = @current_customer
+    else
+      if visit_params[:name].blank?
+        return redirect_to(
+          customer_merchant_path(merchant.slug),
+          inertia: { errors: { name: "Informe seu nome" } }
+        )
+      end
+
+      customer = Customer.identify_for(
+        phone: visit_params[:phone],
+        name:  visit_params[:name],
+        cookie_jar: cookies
+      )
+    end
 
     unless customer
       return redirect_to(
@@ -29,6 +41,6 @@ class Customer::Merchants::VisitsController < Customer::BaseController
   private
 
   def visit_params
-    params.fetch(:visit, {}).permit(:phone)
+    params.fetch(:visit, {}).permit(:phone, :name)
   end
 end

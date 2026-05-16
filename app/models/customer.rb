@@ -13,6 +13,7 @@ class Customer < ApplicationRecord
   before_validation :normalize_phone
 
   validates :phone, presence: true, uniqueness: true
+  validates :name, presence: true
   validates :lgpd_opted_in_at, presence: true
   validate  :phone_must_be_valid_e164
 
@@ -20,6 +21,19 @@ class Customer < ApplicationRecord
 
   def verified?
     verified_at.present?
+  end
+
+  def display_name
+    name
+  end
+
+  def phone_masked
+    return nil if phone.blank?
+    parsed = Phonelib.parse(phone)
+    return phone unless parsed.valid?
+    country_prefix = parsed.country_code
+    last4 = parsed.e164[-4..]
+    "+#{country_prefix} ** *****-#{last4}"
   end
 
   def self.normalize_phone(raw)

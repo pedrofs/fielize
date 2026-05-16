@@ -31,6 +31,6 @@ class Customer::SessionsControllerTest < ActionDispatch::IntegrationTest
   def sign_in_via_enrollment
     post customer_organization_campaign_enrollment_path(
       organizations(:one).slug, campaigns(:pasaporte).slug
-    ), params: { enrollment: { phone: "(53) 99999-1111" } }
+    ), params: { enrollment: { name: "Cliente", phone: "(53) 99999-1111" } }
   end
 end

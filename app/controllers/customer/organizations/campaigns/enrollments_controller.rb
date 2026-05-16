@@ -17,8 +17,21 @@ class Customer::Organizations::Campaigns::EnrollmentsController < Customer::Base
   private
 
   def ensure_customer
-    @customer = @current_customer || Customer.identify_for(
+    if @current_customer
+      @customer = @current_customer
+      return
+    end
+
+    if enrollment_params[:name].blank?
+      return redirect_to(
+        customer_organization_campaign_path(@organization.slug, params[:slug]),
+        inertia: { errors: { name: "Informe seu nome" } }
+      )
+    end
+
+    @customer = Customer.identify_for(
       phone: enrollment_params[:phone],
+      name:  enrollment_params[:name],
       cookie_jar: cookies
     )
 
@@ -31,6 +44,6 @@ class Customer::Organizations::Campaigns::EnrollmentsController < Customer::Base
   end
 
   def enrollment_params
-    params.fetch(:enrollment, {}).permit(:phone)
+    params.fetch(:enrollment, {}).permit(:phone, :name)
   end
 end

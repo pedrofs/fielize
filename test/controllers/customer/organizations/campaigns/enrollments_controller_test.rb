@@ -14,13 +14,14 @@ class Customer::Organizations::Campaigns::EnrollmentsControllerTest < ActionDisp
     assert_difference -> { Customer.count }, +1 do
       assert_difference -> { Enrollment.count }, +1 do
         post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
-             params: { enrollment: { phone: "(53) 90000-1234" } }
+             params: { enrollment: { name: "Ana Pereira", phone: "(53) 90000-1234" } }
       end
     end
 
     assert_redirected_to customer_organization_campaign_path(@organization.slug, @campaign.slug)
     customer = Customer.find_by(phone: "+5553900001234")
     assert_not_nil customer
+    assert_equal "Ana Pereira", customer.name
     enrollment = Enrollment.find_by(customer: customer, campaign: @campaign)
     assert_not_nil enrollment
     assert_not_nil enrollment.consented_at
@@ -31,7 +32,7 @@ class Customer::Organizations::Campaigns::EnrollmentsControllerTest < ActionDisp
   test "enqueues WhatsAppDeliveryJob for an unverified Customer" do
     assert_enqueued_with(job: WhatsAppDeliveryJob) do
       post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
-           params: { enrollment: { phone: "(53) 90000-2345" } }
+           params: { enrollment: { name: "Ana", phone: "(53) 90000-2345" } }
     end
   end
 
@@ -41,7 +42,7 @@ class Customer::Organizations::Campaigns::EnrollmentsControllerTest < ActionDisp
     assert_no_difference -> { Customer.count } do
       assert_difference -> { Enrollment.count }, +1 do
         post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
-             params: { enrollment: { phone: existing.phone } }
+             params: { enrollment: { name: existing.name, phone: existing.phone } }
       end
     end
 
@@ -52,20 +53,34 @@ class Customer::Organizations::Campaigns::EnrollmentsControllerTest < ActionDisp
     assert_no_difference -> { Customer.count } do
       assert_no_difference -> { Enrollment.count } do
         post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
-             params: { enrollment: { phone: "not-a-phone" } }
+             params: { enrollment: { name: "Ana", phone: "not-a-phone" } }
       end
     end
 
     assert_redirected_to customer_organization_campaign_path(@organization.slug, @campaign.slug)
   end
 
-  test "uses the cookie-identified Customer for follow-up enrollments without re-asking for phone" do
+  test "rejects a missing name with an error redirect" do
+    assert_no_difference -> { Customer.count } do
+      assert_no_difference -> { Enrollment.count } do
+        post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
+             params: { enrollment: { phone: "(53) 90000-1111" } }
+      end
+    end
+
+    assert_redirected_to customer_organization_campaign_path(@organization.slug, @campaign.slug)
+    errors = session[:inertia_errors] || {}
+    assert (errors[:name] || errors["name"]).present?,
+      "expected an inertia error on the name field, got #{errors.inspect}"
+  end
+
+  test "uses the cookie-identified Customer for follow-up enrollments without re-asking for phone or name" do
     # First request enrolls and sets the signed cookie via Customer.identify_for.
     post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
-         params: { enrollment: { phone: customers(:maria).phone } }
+         params: { enrollment: { name: customers(:maria).name, phone: customers(:maria).phone } }
 
     second_campaign = campaigns(:cartao_calzados)
-    # Subsequent request reuses the cookie — no phone in params.
+    # Subsequent request reuses the cookie — no phone or name in params.
     assert_no_difference -> { Customer.count } do
       assert_difference -> { Enrollment.count }, +1 do
         post customer_organization_campaign_enrollment_path(@organization.slug, second_campaign.slug),
@@ -80,7 +95,7 @@ class Customer::Organizations::Campaigns::EnrollmentsControllerTest < ActionDisp
     @campaign.update!(status: "draft")
 
     post customer_organization_campaign_enrollment_path(@organization.slug, @campaign.slug),
-         params: { enrollment: { phone: "(53) 90000-3456" } }
+         params: { enrollment: { name: "Ana", phone: "(53) 90000-3456" } }
     assert_response :not_found
   end
 end

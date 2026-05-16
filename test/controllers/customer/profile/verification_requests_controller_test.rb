@@ -39,7 +39,7 @@ class Customer::Profile::VerificationRequestsControllerTest < ActionDispatch::In
   def sign_in_via_enrollment(phone:)
     post customer_organization_campaign_enrollment_path(
       organizations(:one).slug, campaigns(:pasaporte).slug
-    ), params: { enrollment: { phone: phone } }
+    ), params: { enrollment: { name: "Cliente", phone: phone } }
     # The enrollment itself enqueues a verification job — flush it so
     # the assertions below only see jobs from the explicit re-request.
     clear_enqueued_jobs

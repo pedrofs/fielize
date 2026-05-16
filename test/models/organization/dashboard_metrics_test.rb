@@ -7,9 +7,9 @@ class Organization::DashboardMetricsTest < ActiveSupport::TestCase
     @org = organizations(:empty)
     @merchant = @org.merchants.create!(name: "Loja Centro", latitude: -32.5, longitude: -53.3)
 
-    @customer_a = Customer.create!(phone: "+5553900000010", lgpd_opted_in_at: Time.current)
-    @customer_b = Customer.create!(phone: "+5553900000020", lgpd_opted_in_at: Time.current)
-    @customer_c = Customer.create!(phone: "+5553900000030", lgpd_opted_in_at: Time.current)
+    @customer_a = Customer.create!(name: "Ana",  phone: "+5553900000010", lgpd_opted_in_at: Time.current)
+    @customer_b = Customer.create!(name: "Beto", phone: "+5553900000020", lgpd_opted_in_at: Time.current)
+    @customer_c = Customer.create!(name: "Caio", phone: "+5553900000030", lgpd_opted_in_at: Time.current)
 
     @active_campaign = OrganizationCampaign.create!(
       organization: @org,

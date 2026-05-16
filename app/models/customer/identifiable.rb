@@ -15,11 +15,15 @@ module Customer::Identifiable
   COOKIE_KEY = :customer_session
 
   class_methods do
-    def identify_for(phone:, cookie_jar:)
+    def identify_for(phone:, name:, cookie_jar:)
       normalized = normalize_phone(phone)
       return nil unless normalized
 
+      # The name is only ever written on the create branch — once a Customer
+      # exists, their name is preserved across re-identifications even when a
+      # different name is supplied, so identity stays stable across Organizations.
       customer = find_or_create_by!(phone: normalized) do |c|
+        c.name = name
         c.lgpd_opted_in_at = Time.current
       end
 

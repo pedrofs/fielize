@@ -181,12 +181,16 @@ function isPlausibleBrazilianPhone(value: string) {
 
 function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
   const { data, setData, post, processing, errors } = useForm({
-    visit: { phone: "" },
+    visit: { name: "", phone: "" },
   })
   const [clientError, setClientError] = useState<string | null>(null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
+    if (data.visit.name.trim().length === 0) {
+      setClientError("Informe seu nome.")
+      return
+    }
     if (!isPlausibleBrazilianPhone(data.visit.phone)) {
       setClientError("Informe um número de WhatsApp válido com DDD.")
       return
@@ -202,6 +206,21 @@ function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
       data-testid="merchant-identify-form"
     >
       <div className="flex flex-col gap-1.5">
+        <Label htmlFor="merchant-name">Nome</Label>
+        <Input
+          id="merchant-name"
+          name="visit[name]"
+          type="text"
+          autoComplete="name"
+          placeholder="Seu nome"
+          value={data.visit.name}
+          onChange={(e) => setData("visit", { ...data.visit, name: e.target.value })}
+          required
+          data-testid="merchant-name-input"
+        />
+      </div>
+
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="merchant-phone">WhatsApp</Label>
         <Input
           id="merchant-phone"
@@ -210,13 +229,13 @@ function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
           inputMode="tel"
           placeholder="(53) 99999-1111"
           value={data.visit.phone}
-          onChange={(e) => setData("visit", { phone: e.target.value })}
+          onChange={(e) => setData("visit", { ...data.visit, phone: e.target.value })}
           required
           data-testid="merchant-phone-input"
         />
-        {(clientError || errors.phone) && (
+        {(clientError || errors.phone || errors.name) && (
           <p className="text-xs text-destructive" data-testid="merchant-phone-error">
-            {clientError ?? errors.phone}
+            {clientError ?? errors.phone ?? errors.name}
           </p>
         )}
       </div>

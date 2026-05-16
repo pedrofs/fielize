@@ -84,15 +84,21 @@ type EnrollFormProps = {
 
 function EnrollForm({ organizationSlug, campaignSlug, recognized }: EnrollFormProps) {
   const { data, setData, post, processing, errors } = useForm({
-    enrollment: { phone: "" },
+    enrollment: { name: "", phone: "" },
   })
   const [clientError, setClientError] = useState<string | null>(null)
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
-    if (!recognized && !isPlausibleBrazilianPhone(data.enrollment.phone)) {
-      setClientError("Informe um número de WhatsApp válido com DDD.")
-      return
+    if (!recognized) {
+      if (data.enrollment.name.trim().length === 0) {
+        setClientError("Informe seu nome.")
+        return
+      }
+      if (!isPlausibleBrazilianPhone(data.enrollment.phone)) {
+        setClientError("Informe um número de WhatsApp válido com DDD.")
+        return
+      }
     }
     setClientError(null)
     post(`/o/${organizationSlug}/c/${campaignSlug}/enrollment`)
@@ -101,25 +107,46 @@ function EnrollForm({ organizationSlug, campaignSlug, recognized }: EnrollFormPr
   return (
     <form onSubmit={submit} className="flex flex-col gap-3" data-testid="enroll-form">
       {!recognized && (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="enrollment-phone">WhatsApp</Label>
-          <Input
-            id="enrollment-phone"
-            name="enrollment[phone]"
-            type="tel"
-            inputMode="tel"
-            placeholder="(53) 99999-1111"
-            value={data.enrollment.phone}
-            onChange={(e) => setData("enrollment", { phone: e.target.value })}
-            required
-            data-testid="enroll-phone-input"
-          />
-          {(clientError || errors["enrollment.phone"]) && (
-            <p className="text-xs text-destructive" data-testid="enroll-error">
-              {clientError ?? errors["enrollment.phone"]}
-            </p>
-          )}
-        </div>
+        <>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="enrollment-name">Nome</Label>
+            <Input
+              id="enrollment-name"
+              name="enrollment[name]"
+              type="text"
+              autoComplete="name"
+              placeholder="Seu nome"
+              value={data.enrollment.name}
+              onChange={(e) =>
+                setData("enrollment", { ...data.enrollment, name: e.target.value })
+              }
+              required
+              data-testid="enroll-name-input"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="enrollment-phone">WhatsApp</Label>
+            <Input
+              id="enrollment-phone"
+              name="enrollment[phone]"
+              type="tel"
+              inputMode="tel"
+              placeholder="(53) 99999-1111"
+              value={data.enrollment.phone}
+              onChange={(e) =>
+                setData("enrollment", { ...data.enrollment, phone: e.target.value })
+              }
+              required
+              data-testid="enroll-phone-input"
+            />
+            {(clientError || errors["enrollment.phone"] || errors["enrollment.name"]) && (
+              <p className="text-xs text-destructive" data-testid="enroll-error">
+                {clientError ?? errors["enrollment.phone"] ?? errors["enrollment.name"]}
+              </p>
+            )}
+          </div>
+        </>
       )}
 
       <Button
