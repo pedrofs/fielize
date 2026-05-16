@@ -28,6 +28,19 @@ class Customer::MerchantsControllerTest < ActionDispatch::IntegrationTest
     assert_inertia_props campaigns: []
   end
 
+  test "state 3 — no cookie + active matching campaigns serializes the form-render props" do
+    get "/m/#{@merchant.slug}"
+    assert_response :success
+    assert_inertia_props page_state: 3
+    assert_inertia_props do |props|
+      ids = props[:campaigns].map { |c| c[:id] }.sort
+      expected = [ @org_campaign.id, @loyalty.id ].sort
+      assert_equal expected, ids
+      assert props[:campaigns].none? { |c| c[:enrolled] }
+      assert_nil props[:visit]
+    end
+  end
+
   test "state 4 — identified Customer with no Visit and all matching campaigns enrolled" do
     sign_in_as_customer(@customer)
     @org_campaign.enroll!(customer: @customer)

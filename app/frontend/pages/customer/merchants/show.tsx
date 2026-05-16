@@ -1,8 +1,10 @@
 import { router, useForm, usePage } from "@inertiajs/react"
-import { useEffect, useMemo, type FormEvent, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 type Organization = {
   id: string
@@ -171,6 +173,71 @@ function ClaimButton({ merchantSlug }: { merchantSlug: string }) {
   )
 }
 
+const PHONE_DIGITS_RE = /^\d{10,13}$/
+
+function isPlausibleBrazilianPhone(value: string) {
+  return PHONE_DIGITS_RE.test(value.replace(/\D/g, ""))
+}
+
+function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
+  const { data, setData, post, processing, errors } = useForm({
+    visit: { phone: "" },
+  })
+  const [clientError, setClientError] = useState<string | null>(null)
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!isPlausibleBrazilianPhone(data.visit.phone)) {
+      setClientError("Informe um número de WhatsApp válido com DDD.")
+      return
+    }
+    setClientError(null)
+    post(`/m/${merchantSlug}/visit`)
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3"
+      data-testid="merchant-identify-form"
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="merchant-phone">WhatsApp</Label>
+        <Input
+          id="merchant-phone"
+          name="visit[phone]"
+          type="tel"
+          inputMode="tel"
+          placeholder="(53) 99999-1111"
+          value={data.visit.phone}
+          onChange={(e) => setData("visit", { phone: e.target.value })}
+          required
+          data-testid="merchant-phone-input"
+        />
+        {(clientError || errors.phone) && (
+          <p className="text-xs text-destructive" data-testid="merchant-phone-error">
+            {clientError ?? errors.phone}
+          </p>
+        )}
+      </div>
+
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={processing}
+        data-testid="merchant-claim-cta"
+      >
+        Ganhar selo
+      </Button>
+
+      <p className="text-xs text-muted-foreground">
+        Ao clicar você concorda com os termos de privacidade (LGPD).
+      </p>
+    </form>
+  )
+}
+
 function PendingCodeCard({ visit }: { visit: Visit }) {
   return (
     <section
@@ -267,13 +334,15 @@ export default function CustomerMerchantShow({
       {pageState === 2 && <EmptyCampaignsState />}
 
       {pageState === 3 && (
-        // Slice 9.2 will replace this placeholder with the inline WhatsApp form.
         <section
-          className="flex flex-col gap-3 rounded-lg border bg-card p-4"
-          data-testid="merchant-unidentified-placeholder"
+          className="flex flex-col gap-4"
+          data-testid="merchant-unidentified-state"
         >
-          <p className="text-sm">Entre com seu WhatsApp para participar e ganhar seu selo.</p>
+          <p className="text-sm text-muted-foreground">
+            Entre com seu WhatsApp para participar e ganhar seu selo.
+          </p>
           <CampaignList campaigns={campaigns} grouped={false} />
+          <UnidentifiedClaimForm merchantSlug={merchant.slug} />
         </section>
       )}
 

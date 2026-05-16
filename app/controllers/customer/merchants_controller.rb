@@ -33,7 +33,9 @@ class Customer::MerchantsController < Customer::BaseController
 
   # Page-state matrix (see PRD #24 "Page-state matrix"):
   #   2 — Merchant has no active campaigns at all.
-  #   3 — Unidentified visitor + matching campaigns. Form is wired up in Slice 9.2.
+  #   3 — Unidentified visitor + matching campaigns. Inline WhatsApp form
+  #       POSTs to /m/:slug/visit with a phone param; identify-then-claim
+  #       happens atomically in the same request.
   #   4 — Identified, no today's Visit, all matching campaigns enrolled.
   #   5 — Identified, no today's Visit, some matching unenrolled.
   #   6 — Identified, today's Visit pending — show the 6-digit code.
