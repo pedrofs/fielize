@@ -93,7 +93,6 @@ export type Campaign = {
   entryPolicy: EntryPolicy
   requiresValidation: boolean
   dayCap: number | null
-  merchantIds: string[]
   prizes: Prize[]
   description: string | null
   terms: string | null

@@ -35,8 +35,7 @@ class Organizations::CampaignsController < Organizations::BaseController
     add_breadcrumb label: "Nova", path: new_organizations_campaign_path
 
     render inertia: {
-      campaign: blank_campaign_payload,
-      merchants: current_organization.merchants.order(:name).map { |m| { id: m.id, name: m.name } }
+      campaign: blank_campaign_payload
     }
   end
 
@@ -56,8 +55,7 @@ class Organizations::CampaignsController < Organizations::BaseController
     add_breadcrumb label: "Editar", path: edit_organizations_campaign_path(@campaign)
 
     render inertia: {
-      campaign: serialize_full(@campaign),
-      merchants: current_organization.merchants.order(:name).map { |m| { id: m.id, name: m.name } }
+      campaign: serialize_full(@campaign)
     }
   end
 
@@ -91,7 +89,6 @@ class Organizations::CampaignsController < Organizations::BaseController
       :name, :slug, :starts_at, :ends_at, :requires_validation,
       :entry_policy, :day_cap,
       :description, :terms, :hero_image,
-      merchant_ids: [],
       prizes_attributes: [ [ :id, :name, :threshold, :position, :_destroy ] ]
     ])
   end
@@ -107,7 +104,6 @@ class Organizations::CampaignsController < Organizations::BaseController
       entry_policy: "cumulative",
       requires_validation: false,
       day_cap: nil,
-      merchant_ids: [],
       prizes: [],
       description: nil,
       terms: nil,
@@ -168,7 +164,6 @@ class Organizations::CampaignsController < Organizations::BaseController
       entry_policy: campaign.entry_policy,
       requires_validation: campaign.requires_validation,
       day_cap: campaign.day_cap,
-      merchant_ids: campaign.merchants.pluck(:id),
       prizes: campaign.prizes.order(:position).map do |p|
         { id: p.id, name: p.name, threshold: p.threshold, position: p.position }
       end,

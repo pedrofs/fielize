@@ -10,7 +10,7 @@ class Organizations::CampaignsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
-  test "create with valid payload persists campaign + prizes + merchants" do
+  test "create with valid payload persists campaign + prizes (no merchant selection on the form)" do
     assert_difference -> { Campaign.count }, 1 do
       post organizations_campaigns_path, params: {
         campaign: {
@@ -26,7 +26,9 @@ class Organizations::CampaignsControllerTest < ActionDispatch::IntegrationTest
     campaign = Campaign.order(:created_at).last
     assert_equal "Pasaporte 2026", campaign.name
     assert_equal 1, campaign.prizes.count
-    assert_includes campaign.merchant_ids, merchants(:one).id
+    # merchant_ids is no longer permitted on the form — merchants are added
+    # via Organizations::Campaigns::MerchantsController on the show page.
+    assert_empty campaign.merchant_ids
   end
 
   test "destroy is blocked on non-draft" do

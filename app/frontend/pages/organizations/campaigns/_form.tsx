@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TrixEditor } from "@/components/trix-editor"
-import type { Campaign, EntryPolicy, MerchantOption, PrizeInput } from "@/types"
+import type { Campaign, EntryPolicy, PrizeInput } from "@/types"
 
 type Mode = "new" | "edit"
 
 type Props = {
   mode: Mode
   campaign: Campaign
-  merchants: MerchantOption[]
 }
 
 type FormShape = {
@@ -25,7 +24,6 @@ type FormShape = {
     entryPolicy: EntryPolicy
     requiresValidation: boolean
     dayCap: number | null
-    merchantIds: string[]
     prizesAttributes: PrizeInput[]
     description: string
     terms: string
@@ -33,7 +31,7 @@ type FormShape = {
   }
 }
 
-export function CampaignForm({ mode, campaign, merchants }: Props) {
+export function CampaignForm({ mode, campaign }: Props) {
   const form = useForm<FormShape>({
     campaign: {
       name: campaign.name,
@@ -43,7 +41,6 @@ export function CampaignForm({ mode, campaign, merchants }: Props) {
       entryPolicy: campaign.entryPolicy,
       requiresValidation: campaign.requiresValidation,
       dayCap: campaign.dayCap,
-      merchantIds: campaign.merchantIds,
       prizesAttributes: campaign.prizes.map((p) => ({
         id: p.id,
         name: p.name,
@@ -111,14 +108,6 @@ export function CampaignForm({ mode, campaign, merchants }: Props) {
       entryPolicy: policy,
       prizesAttributes: prizes,
     })
-  }
-
-  const toggleMerchant = (merchantId: string, checked: boolean) => {
-    const current = form.data.campaign.merchantIds
-    const next = checked
-      ? [...current, merchantId]
-      : current.filter((id) => id !== merchantId)
-    update("merchantIds", next)
   }
 
   const visiblePrizes = form.data.campaign.prizesAttributes
@@ -363,40 +352,6 @@ export function CampaignForm({ mode, campaign, merchants }: Props) {
             {form.errors["campaign.terms"]}
           </p>
         )}
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">Lojistas participantes</h2>
-        <div className="rounded-md border divide-y">
-          {merchants.length === 0 && (
-            <p className="p-4 text-sm text-muted-foreground">
-              Nenhum lojista cadastrado.
-            </p>
-          )}
-          {merchants.map((m) => {
-            const checked = form.data.campaign.merchantIds.includes(m.id)
-            const removeBlocked = isActive && checked
-            return (
-              <label
-                key={m.id}
-                className="flex items-center gap-2 p-3 text-sm cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => toggleMerchant(m.id, e.target.checked)}
-                  disabled={removeBlocked}
-                />
-                <span>{m.name}</span>
-                {removeBlocked && (
-                  <span className="text-xs text-muted-foreground ml-auto">
-                    Não removível enquanto ativa
-                  </span>
-                )}
-              </label>
-            )
-          })}
-        </div>
       </section>
 
       {form.errors["campaign.base"] && (
