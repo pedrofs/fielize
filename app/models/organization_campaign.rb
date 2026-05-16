@@ -18,7 +18,7 @@ class OrganizationCampaign < Campaign
   validate  :ends_after_starts
   validate  :merchant_id_must_be_blank
   validate  :policy_specific_config
-  validate  :prevent_merchant_removal_when_active
+  validate  :prevent_merchant_removal_when_locked
 
   def confirmed_stamps_for(customer)
     stamps.where(status: "confirmed", customer: customer)
@@ -119,14 +119,15 @@ class OrganizationCampaign < Campaign
     prizes.each { |p| p.threshold = nil unless p.marked_for_destruction? }
   end
 
-  # Adds always allowed; removes only while draft. Once active, dropping
-  # a merchant aborts the save.
-  def prevent_merchant_removal_when_active
-    return unless persisted? && active?
+  # Adds always allowed; removes only while draft. Once locked (active or
+  # ended), dropping a merchant aborts the save — historical participation
+  # cannot be retroactively erased once a Campaign has ended.
+  def prevent_merchant_removal_when_locked
+    return unless persisted? && (active? || ended?)
     persisted_join_ids = campaign_merchants.where.not(id: nil).pluck(:merchant_id)
     surviving_ids = campaign_merchants.reject(&:marked_for_destruction?).map(&:merchant_id)
     removed = persisted_join_ids - surviving_ids
     return if removed.empty?
-    errors.add(:base, "Não é possível remover lojistas de uma campanha ativa.")
+    errors.add(:base, "Não é possível remover lojistas de uma campanha ativa ou encerrada.")
   end
 end

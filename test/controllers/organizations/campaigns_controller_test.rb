@@ -142,6 +142,47 @@ class Organizations::Campaigns::MerchantsControllerTest < ActionDispatch::Integr
     end
     assert_redirected_to organizations_campaign_path(@campaign)
   end
+
+  test "destroy removes a merchant from a draft campaign" do
+    CampaignMerchant.create!(organization_campaign: @campaign, merchant: @merchant)
+
+    assert_difference -> { @campaign.campaign_merchants.count }, -1 do
+      delete organizations_campaign_merchant_path(@campaign, @merchant)
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+    refute_includes @campaign.reload.merchant_ids, @merchant.id
+  end
+
+  test "destroy is rejected on an active campaign" do
+    CampaignMerchant.create!(organization_campaign: @campaign, merchant: @merchant)
+    @campaign.prizes.create!(name: "Tier", threshold: 6)
+    @campaign.activate!
+
+    assert_no_difference -> { @campaign.campaign_merchants.count } do
+      delete organizations_campaign_merchant_path(@campaign, @merchant)
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+    assert_includes @campaign.reload.merchant_ids, @merchant.id
+  end
+
+  test "destroy is rejected on an ended campaign" do
+    CampaignMerchant.create!(organization_campaign: @campaign, merchant: @merchant)
+    @campaign.prizes.create!(name: "Tier", threshold: 6)
+    @campaign.activate!
+    @campaign.end!
+    assert @campaign.ended?
+
+    assert_no_difference -> { @campaign.campaign_merchants.count } do
+      delete organizations_campaign_merchant_path(@campaign, @merchant)
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+    assert_includes @campaign.reload.merchant_ids, @merchant.id
+  end
+
+  test "destroy with unknown merchant_id redirects with an alert" do
+    delete organizations_campaign_merchant_path(@campaign, merchants(:two))
+    assert_redirected_to organizations_campaign_path(@campaign)
+  end
 end
 
 class Organizations::Campaigns::TerminationsControllerTest < ActionDispatch::IntegrationTest

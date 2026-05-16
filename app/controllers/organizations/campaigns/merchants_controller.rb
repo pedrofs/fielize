@@ -14,6 +14,18 @@ class Organizations::Campaigns::MerchantsController < Organizations::BaseControl
     redirect_to organizations_campaign_path(@campaign)
   end
 
+  def destroy
+    join = @campaign.campaign_merchants.find_by(merchant_id: params[:id])
+
+    if join.nil?
+      redirect_to organizations_campaign_path(@campaign), alert: "Lojista não está nesta campanha."
+    elsif join.destroy
+      redirect_to organizations_campaign_path(@campaign), notice: "Lojista removido."
+    else
+      redirect_to organizations_campaign_path(@campaign), alert: join.errors[:base].first
+    end
+  end
+
   private
 
   def set_campaign

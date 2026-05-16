@@ -56,7 +56,7 @@ class OrganizationCampaignNestedAttrsTest < ActiveSupport::TestCase
     assert_nil campaign.prizes.first.reload.threshold
   end
 
-  # ----- prevent_merchant_removal_when_active -----
+  # ----- prevent_merchant_removal_when_locked -----
 
   test "active campaign rejects merchant removal" do
     campaign = OrganizationCampaign.create!(@valid_attrs.merge(
@@ -69,7 +69,23 @@ class OrganizationCampaignNestedAttrsTest < ActiveSupport::TestCase
 
     join = campaign.campaign_merchants.find_by!(merchant: merchants(:two))
     refute join.destroy
-    assert join.errors[:base].any? { |e| e.include?("ativa") }
+    assert join.errors[:base].any? { |e| e.include?("ativa") || e.include?("encerrada") }
+    assert_includes campaign.reload.merchant_ids, merchants(:two).id
+  end
+
+  test "ended campaign rejects merchant removal" do
+    campaign = OrganizationCampaign.create!(@valid_attrs.merge(
+      prizes_attributes: [ { name: "Tier", threshold: 6, position: 0 } ]
+    ))
+    campaign.merchants << merchants(:one)
+    campaign.merchants << merchants(:two)
+    campaign.activate!
+    campaign.end!
+    assert campaign.ended?
+
+    join = campaign.campaign_merchants.find_by!(merchant: merchants(:two))
+    refute join.destroy
+    assert join.errors[:base].any? { |e| e.include?("ativa") || e.include?("encerrada") }
     assert_includes campaign.reload.merchant_ids, merchants(:two).id
   end
 
@@ -97,6 +113,19 @@ class OrganizationCampaignNestedAttrsTest < ActiveSupport::TestCase
     campaign.merchant_ids = [ merchants(:one).id ]
     assert campaign.save
     assert_equal [ merchants(:one).id ], campaign.merchant_ids
+  end
+
+  test "draft campaign allows merchant removal via destroy" do
+    campaign = OrganizationCampaign.create!(@valid_attrs.merge(
+      prizes_attributes: [ { name: "Tier", threshold: 6, position: 0 } ]
+    ))
+    campaign.merchants << merchants(:one)
+    campaign.merchants << merchants(:two)
+    assert campaign.draft?
+
+    join = campaign.campaign_merchants.find_by!(merchant: merchants(:two))
+    assert join.destroy
+    refute_includes campaign.reload.merchant_ids, merchants(:two).id
   end
 
   private

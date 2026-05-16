@@ -1,6 +1,6 @@
 import type { ReactNode } from "react"
 import { Link, router } from "@inertiajs/react"
-import { PencilIcon } from "lucide-react"
+import { PencilIcon, Trash2Icon } from "lucide-react"
 
 import { AppLayout } from "@/layouts/app-layout"
 import { Button } from "@/components/ui/button"
@@ -33,6 +33,14 @@ export default function CampaignShow({ campaign, merchantRows, availableMerchant
     if (!confirm("Excluir esta campanha?")) return
     router.delete(`/organizations/campaigns/${campaign.id}`)
   }
+  const onRemoveMerchant = (merchantId: string, merchantName: string) => {
+    if (!confirm(`Remover ${merchantName} desta campanha?`)) return
+    router.delete(
+      `/organizations/campaigns/${campaign.id}/merchants/${merchantId}`,
+      { preserveScroll: true },
+    )
+  }
+  const canRemoveMerchants = campaign.status === "draft"
 
   const joinedDateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" })
   const formatJoinedAt = (iso: string) => joinedDateFormatter.format(new Date(iso))
@@ -124,6 +132,7 @@ export default function CampaignShow({ campaign, merchantRows, availableMerchant
                   <TableHead className="text-right">Stamps confirmados</TableHead>
                   <TableHead className="text-right">Clientes distintos</TableHead>
                   <TableHead>Entrou em</TableHead>
+                  {canRemoveMerchants && <TableHead className="w-12" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -144,6 +153,19 @@ export default function CampaignShow({ campaign, merchantRows, availableMerchant
                     <TableCell className="text-muted-foreground">
                       {formatJoinedAt(row.joinedAt)}
                     </TableCell>
+                    {canRemoveMerchants && (
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Remover ${row.name}`}
+                          onClick={() => onRemoveMerchant(row.merchantId, row.name)}
+                          data-testid={`merchant-remove-${row.merchantId}`}
+                        >
+                          <Trash2Icon className="size-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

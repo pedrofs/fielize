@@ -25,4 +25,57 @@ class CampaignMerchantTest < ActiveSupport::TestCase
     refute duplicate.valid?
     assert_includes duplicate.errors[:merchant_id], "has already been taken"
   end
+
+  # ----- prevent_removal_when_campaign_locked -----
+
+  test "destroy succeeds when campaign is draft" do
+    campaign = build_campaign
+    campaign.merchants << merchants(:one)
+    campaign.merchants << merchants(:two)
+    assert campaign.draft?
+
+    join = campaign.campaign_merchants.find_by!(merchant: merchants(:two))
+    assert join.destroy
+    refute_includes campaign.reload.merchant_ids, merchants(:two).id
+  end
+
+  test "destroy is rejected when campaign is active" do
+    campaign = build_campaign
+    campaign.merchants << merchants(:one)
+    campaign.merchants << merchants(:two)
+    campaign.activate!
+    assert campaign.active?
+
+    join = campaign.campaign_merchants.find_by!(merchant: merchants(:two))
+    refute join.destroy
+    assert join.errors[:base].any? { |e| e.include?("ativa") || e.include?("encerrada") }
+    assert_includes campaign.reload.merchant_ids, merchants(:two).id
+  end
+
+  test "destroy is rejected when campaign is ended" do
+    campaign = build_campaign
+    campaign.merchants << merchants(:one)
+    campaign.merchants << merchants(:two)
+    campaign.activate!
+    campaign.end!
+    assert campaign.ended?
+
+    join = campaign.campaign_merchants.find_by!(merchant: merchants(:two))
+    refute join.destroy
+    assert join.errors[:base].any? { |e| e.include?("ativa") || e.include?("encerrada") }
+    assert_includes campaign.reload.merchant_ids, merchants(:two).id
+  end
+
+  private
+
+  def build_campaign
+    OrganizationCampaign.create!(
+      organization: organizations(:one),
+      name: "Lock Guard Test",
+      starts_at: 1.day.from_now,
+      ends_at: 1.month.from_now,
+      entry_policy: "cumulative",
+      prizes_attributes: [ { name: "Tier", threshold: 6, position: 0 } ]
+    )
+  end
 end
