@@ -23,7 +23,8 @@ class Organizations::CampaignsController < Organizations::BaseController
 
     render inertia: {
       campaign: serialize_full(@campaign),
-      merchant_rows: serialize_merchant_rows(@campaign)
+      merchant_rows: serialize_merchant_rows(@campaign),
+      available_merchants: @campaign.merchants_not_yet_in_campaign.map { |m| { id: m.id, name: m.name } }
     }
   end
 

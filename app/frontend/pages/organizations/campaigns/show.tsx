@@ -12,14 +12,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import type { Campaign, CampaignMerchantRow } from "@/types"
+import { CampaignMerchantCombobox } from "@/components/campaign-merchant-combobox"
+import type { Campaign, CampaignMerchantRow, MerchantOption } from "@/types"
 
 type Props = {
   campaign: Campaign
   merchantRows: CampaignMerchantRow[]
+  availableMerchants: MerchantOption[]
 }
 
-export default function CampaignShow({ campaign, merchantRows }: Props) {
+export default function CampaignShow({ campaign, merchantRows, availableMerchants }: Props) {
   const onActivate = () => {
     router.post(`/organizations/campaigns/${campaign.id}/activation`, {}, { preserveScroll: true })
   }
@@ -98,6 +100,12 @@ export default function CampaignShow({ campaign, merchantRows }: Props) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Lojistas participantes</h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <CampaignMerchantCombobox
+            campaignId={campaign.id}
+            merchants={availableMerchants}
+          />
+        </div>
         {merchantRows.length === 0 ? (
           <p className="text-sm text-muted-foreground" data-testid="merchants-empty">
             Ainda não há lojistas nesta campanha.

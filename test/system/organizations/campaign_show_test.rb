@@ -49,4 +49,36 @@ class Organizations::CampaignShowTest < ApplicationSystemTestCase
     assert_no_selector "[data-testid='merchants-table']"
     assert_selector "[data-testid='merchants-empty']", text: "Ainda não há lojistas nesta campanha."
   end
+
+  test "selecting a merchant from the combobox attaches it and removes it from the option set" do
+    sign_in_as(users(:admin))
+
+    new_merchant = Merchant.create!(
+      organization: @org, name: "Padaria do Mercado", slug: "padaria-do-mercado",
+      address: "Rua A, 1", latitude: -32.5614, longitude: -53.3756
+    )
+
+    empty_campaign = OrganizationCampaign.create!(
+      organization: @org,
+      name: "Combobox Target",
+      slug: "combobox-target",
+      starts_at: 1.day.from_now,
+      ends_at: 1.month.from_now,
+      entry_policy: "cumulative",
+      status: "draft"
+    )
+
+    visit organizations_campaign_path(empty_campaign)
+
+    assert_selector "[data-testid='campaign-merchant-combobox']"
+    find("[data-testid='campaign-merchant-combobox']").click
+    find("[data-testid='campaign-merchant-combobox-option-#{new_merchant.id}']").click
+
+    assert_selector "[data-testid='merchant-row-#{new_merchant.id}']", wait: 5
+    assert empty_campaign.reload.merchant_ids.include?(new_merchant.id)
+
+    # Reopen the combobox; the just-attached merchant must not appear in the option set.
+    find("[data-testid='campaign-merchant-combobox']").click
+    assert_no_selector "[data-testid='campaign-merchant-combobox-option-#{new_merchant.id}']"
+  end
 end

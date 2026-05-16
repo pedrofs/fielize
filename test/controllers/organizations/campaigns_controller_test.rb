@@ -78,6 +78,46 @@ class Organizations::Campaigns::ActivationsControllerTest < ActionDispatch::Inte
   end
 end
 
+class Organizations::Campaigns::MerchantsControllerTest < ActionDispatch::IntegrationTest
+  setup do
+    sign_in_as(users(:admin))
+    @campaign = OrganizationCampaign.create!(
+      organization: organizations(:one),
+      name: "Attach Target",
+      slug: "attach-target",
+      starts_at: 1.day.from_now,
+      ends_at: 1.month.from_now,
+      entry_policy: "cumulative",
+      status: "draft"
+    )
+    @merchant = merchants(:one)
+  end
+
+  test "create attaches a single merchant" do
+    assert_difference -> { @campaign.campaign_merchants.count }, 1 do
+      post organizations_campaign_merchants_path(@campaign), params: { merchant_id: @merchant.id }
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+    assert_includes @campaign.reload.merchant_ids, @merchant.id
+  end
+
+  test "create is idempotent for an already-attached merchant" do
+    CampaignMerchant.create!(organization_campaign: @campaign, merchant: @merchant)
+
+    assert_no_difference -> { @campaign.campaign_merchants.count } do
+      post organizations_campaign_merchants_path(@campaign), params: { merchant_id: @merchant.id }
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+  end
+
+  test "create refuses to attach a merchant from a different organization" do
+    other_merchant = merchants(:two)
+    assert_no_difference -> { @campaign.campaign_merchants.count } do
+      post organizations_campaign_merchants_path(@campaign), params: { merchant_id: other_merchant.id }
+    end
+  end
+end
+
 class Organizations::Campaigns::TerminationsControllerTest < ActionDispatch::IntegrationTest
   setup do
     sign_in_as(users(:admin))

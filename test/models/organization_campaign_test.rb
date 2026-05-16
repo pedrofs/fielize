@@ -169,6 +169,40 @@ class OrganizationCampaignTest < ActiveSupport::TestCase
     refute_includes merchant_ids, detached.id
   end
 
+  # ----- merchants_not_yet_in_campaign -----
+
+  test "merchants_not_yet_in_campaign returns Organization Merchants not in campaign_merchants" do
+    campaign = campaigns(:pasaporte)
+    org = organizations(:one)
+
+    # Fixture: calzados (merchants:one) is already attached to pasaporte. Other org's
+    # merchant (merchants:two) must never appear regardless of attachment state.
+    available = Merchant.create!(organization: org, name: "Padaria Central",
+                                 slug: "padaria-central", address: "X",
+                                 latitude: -32.5, longitude: -53.3)
+    other_org_merchant = merchants(:two) # belongs to organizations(:two)
+
+    result = campaign.merchants_not_yet_in_campaign
+
+    assert_includes result, available
+    refute_includes result, merchants(:one)
+    refute_includes result, other_org_merchant
+  end
+
+  test "merchants_not_yet_in_campaign is empty when every Organization Merchant is already attached" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "All-In", slug: "all-in",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    org.merchants.find_each do |m|
+      CampaignMerchant.create!(organization_campaign: campaign, merchant: m)
+    end
+
+    assert_empty campaign.merchants_not_yet_in_campaign
+  end
+
   test "entries_for simple counts capped per day" do
     campaign = OrganizationCampaign.create!(@valid_attrs.merge(
       name: "Simple Cap", entry_policy: "simple", day_cap: 1, status: "active"

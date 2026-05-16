@@ -57,6 +57,12 @@ class OrganizationCampaign < Campaign
     confirmed_stamps_for(customer).distinct.pluck(:merchant_id)
   end
 
+  def merchants_not_yet_in_campaign
+    organization.merchants
+                .where.not(id: campaign_merchants.select(:merchant_id))
+                .order(:name)
+  end
+
   def eligible_for?(customer, prize)
     if cumulative?
       merchants_stamped_by(customer).size >= prize.threshold
