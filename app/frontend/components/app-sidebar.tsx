@@ -10,6 +10,7 @@ import {
   ChevronsUpDownIcon,
   LogOutIcon,
   BuildingIcon,
+  Settings2Icon,
 } from "lucide-react"
 
 import type { SharedProps, Membership } from "@/types"
@@ -246,6 +247,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {isOrganizationUser && activeOrg && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/organizations/${activeOrg.id}/edit`}>
+                    <Settings2Icon className="mr-2 size-4" />
+                    <span>Configurações da organização</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => router.delete("/session")}
               >

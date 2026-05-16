@@ -19,7 +19,7 @@ class OrganizationsControllerTest < ActionDispatch::IntegrationTest
       }
     }
 
-    assert_redirected_to organizations_path
+    assert_redirected_to edit_organization_path(@organization)
     @organization.reload
     assert_equal "#ff5733", @organization.primary_color
     assert_equal "#3357ff", @organization.secondary_color

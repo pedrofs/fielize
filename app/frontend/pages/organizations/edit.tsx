@@ -173,7 +173,7 @@ export default function OrganizationEdit({ organization }: Props) {
               Salvar
             </Button>
             <Button variant="outline" asChild>
-              <Link href="/organizations/merchants">Cancelar</Link>
+              <Link href="/">Cancelar</Link>
             </Button>
           </div>
 

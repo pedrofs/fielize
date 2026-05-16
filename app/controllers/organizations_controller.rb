@@ -26,7 +26,7 @@ class OrganizationsController < InertiaController
 
   def update
     if @organization.update(organization_params)
-      redirect_to organizations_path, notice: "Organization updated."
+      redirect_to edit_organization_path(@organization), notice: "Organization updated."
     else
       redirect_to edit_organization_path(@organization), inertia: { errors: @organization.errors.messages.transform_keys { |k| "organization.#{k}" } }
     end
