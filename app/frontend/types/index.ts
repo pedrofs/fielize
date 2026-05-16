@@ -113,6 +113,42 @@ export type CampaignMerchantRow = {
   joinedAt: string
 }
 
+export type CampaignChrome = {
+  id: string
+  name: string
+  slug: string
+  status: CampaignStatus
+  startsAt: string | null
+  endsAt: string | null
+  entryPolicy: EntryPolicy
+  dayCap: number | null
+  prizes: Prize[]
+}
+
+export type EnrollmentProgress =
+  | { kind: "cumulative"; merchantsStamped: number; nextPrizeThreshold: number | null }
+  | { kind: "simple"; entries: number }
+
+export type EnrollmentRow = {
+  customer: {
+    id: string
+    displayName: string
+    phoneMasked: string | null
+  }
+  consentedAt: string
+  stampsCount: number
+  progress: EnrollmentProgress
+}
+
+export type Pagination = {
+  page: number
+  pages: number
+  count: number
+  limit: number
+  prev: number | null
+  next: number | null
+}
+
 export type LoyaltyProgramStatus = "draft" | "active" | "ended"
 
 export type LoyaltyPrize = {

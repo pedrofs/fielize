@@ -57,6 +57,47 @@ class OrganizationCampaign < Campaign
     confirmed_stamps_for(customer).distinct.pluck(:merchant_id)
   end
 
+  # Paginated enrollment rows for the Clientes tab. Each row carries the
+  # Customer (id + display name + masked phone), the enrollment's
+  # consented_at, the confirmed Stamps count for this Campaign, and a
+  # policy-aware progress payload:
+  #
+  #   cumulative → { kind: "cumulative", merchants_stamped: N, next_prize_threshold: T|nil }
+  #   simple     → { kind: "simple",     entries: N }
+  #
+  # Sorted by confirmed Stamps DESC then consented_at DESC. Aggregations
+  # are computed in SQL (single query for the page) to avoid N+1.
+  def enrollment_rows(page:, per_page: 25)
+    confirmed_join = <<~SQL.squish
+      LEFT OUTER JOIN stamps
+        ON stamps.customer_id = enrollments.customer_id
+       AND stamps.campaign_id = enrollments.campaign_id
+       AND stamps.status      = 'confirmed'
+    SQL
+
+    base_scope = enrollments
+                   .joins(:customer)
+                   .joins(confirmed_join)
+                   .group("enrollments.id", "customers.id")
+                   .select(
+                     "enrollments.id AS enrollment_id",
+                     "enrollments.customer_id AS enrollment_customer_id",
+                     "enrollments.consented_at AS enrollment_consented_at",
+                     "customers.name AS customer_name",
+                     "customers.phone AS customer_phone",
+                     Arel.sql("COUNT(stamps.id) AS confirmed_stamps_count"),
+                     Arel.sql("COUNT(DISTINCT stamps.merchant_id) AS distinct_merchants_stamped")
+                   )
+                   .order(Arel.sql("COUNT(stamps.id) DESC"), Arel.sql("enrollments.consented_at DESC"))
+
+    pagy = Pagy.new(count: enrollments.count, page: page.to_i, limit: per_page)
+    page_records = base_scope.offset(pagy.offset).limit(pagy.limit).to_a
+
+    rows = page_records.map { |record| build_enrollment_row(record) }
+
+    [ pagy, rows ]
+  end
+
   def merchants_not_yet_in_campaign
     organization.merchants
                 .where.not(id: campaign_merchants.select(:merchant_id))
@@ -94,6 +135,53 @@ class OrganizationCampaign < Campaign
   end
 
   private
+
+  def build_enrollment_row(record)
+    stamps_count = record.confirmed_stamps_count.to_i
+    customer = {
+      id: record.enrollment_customer_id,
+      display_name: record.customer_name,
+      phone_masked: mask_phone(record.customer_phone)
+    }
+
+    {
+      customer: customer,
+      consented_at: record.enrollment_consented_at,
+      stamps_count: stamps_count,
+      progress: build_progress_for(
+        merchants_stamped: record.distinct_merchants_stamped.to_i,
+        customer_id: record.enrollment_customer_id
+      )
+    }
+  end
+
+  def build_progress_for(merchants_stamped:, customer_id:)
+    if cumulative?
+      next_threshold = prizes
+                         .where("threshold > ?", merchants_stamped)
+                         .order(:threshold)
+                         .limit(1)
+                         .pluck(:threshold)
+                         .first
+      { kind: "cumulative", merchants_stamped: merchants_stamped, next_prize_threshold: next_threshold }
+    else
+      { kind: "simple", entries: simple_entries_count(customer_id) }
+    end
+  end
+
+  def simple_entries_count(customer_id)
+    per_day = stamps.where(status: "confirmed", customer_id: customer_id)
+                    .group("DATE(created_at)")
+                    .count
+    per_day.values.sum { |c| day_cap ? [ c, day_cap ].min : c }
+  end
+
+  def mask_phone(phone)
+    return nil if phone.blank?
+    parsed = Phonelib.parse(phone)
+    return phone unless parsed.valid?
+    "+#{parsed.country_code} ** *****-#{parsed.e164[-4..]}"
+  end
 
   def ends_after_starts
     return unless starts_at && ends_at

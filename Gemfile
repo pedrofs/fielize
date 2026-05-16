@@ -25,6 +25,9 @@ gem "geocoder"
 # (printable QR for `/s/:merchant_slug`) and admin exports.
 gem "rqrcode"
 
+# Pagination for server-side paginated tables.
+gem "pagy", "~> 9.3"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 

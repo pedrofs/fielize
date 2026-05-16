@@ -280,6 +280,207 @@ class OrganizationCampaignTest < ActiveSupport::TestCase
     assert_equal [ added.id ], newly_attached.map(&:id)
   end
 
+  # ----- enrollment_rows -----
+
+  test "enrollment_rows orders by confirmed stamps DESC then consented_at DESC" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Order", slug: "rows-order",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    campaign.prizes.create!(name: "Prêmio", threshold: 3, position: 0)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+
+    older_customer = Customer.create!(phone: "+5553988880001", name: "Alice", lgpd_opted_in_at: Time.current)
+    middle_customer = Customer.create!(phone: "+5553988880002", name: "Bob", lgpd_opted_in_at: Time.current)
+    newer_customer = Customer.create!(phone: "+5553988880003", name: "Carla", lgpd_opted_in_at: Time.current)
+
+    Enrollment.create!(customer: older_customer,  campaign: campaign, consented_at: 3.days.ago)
+    Enrollment.create!(customer: middle_customer, campaign: campaign, consented_at: 2.days.ago)
+    Enrollment.create!(customer: newer_customer,  campaign: campaign, consented_at: 1.day.ago)
+
+    # Stamps: alice has 2 confirmed, bob has 0, carla has 0 — alice should be first.
+    # Between bob and carla (both 0), the more recent consented_at wins (carla first).
+    2.times do |i|
+      visit = Visit.create!(customer: older_customer, merchant: merchants(:one), local_day: Date.current - i)
+      Stamp.create!(visit: visit, campaign: campaign, customer: older_customer,
+                    merchant: merchants(:one), status: "confirmed", confirmed_at: Time.current)
+    end
+
+    pagy, rows = campaign.enrollment_rows(page: 1, per_page: 25)
+
+    customer_ids = rows.map { |r| r[:customer][:id] }
+    assert_equal [ older_customer.id, newer_customer.id, middle_customer.id ], customer_ids
+    assert_equal 3, pagy.count
+  end
+
+  test "enrollment_rows excludes pending stamps from confirmed stamp count" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Pending", slug: "rows-pending",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    campaign.prizes.create!(name: "Prêmio", threshold: 3, position: 0)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+
+    customer = Customer.create!(phone: "+5553988881001", name: "Diana", lgpd_opted_in_at: Time.current)
+    Enrollment.create!(customer: customer, campaign: campaign, consented_at: 1.day.ago)
+
+    confirmed_visit = Visit.create!(customer: customer, merchant: merchants(:one), local_day: Date.current)
+    Stamp.create!(visit: confirmed_visit, campaign: campaign, customer: customer,
+                  merchant: merchants(:one), status: "confirmed", confirmed_at: Time.current)
+
+    pending_visit = Visit.create!(customer: customer, merchant: merchants(:one), local_day: Date.current - 1)
+    Stamp.create!(visit: pending_visit, campaign: campaign, customer: customer,
+                  merchant: merchants(:one), status: "pending",
+                  code: "ABC123", expires_at: 1.hour.from_now)
+
+    _pagy, rows = campaign.enrollment_rows(page: 1, per_page: 25)
+    assert_equal 1, rows.first[:stamps_count]
+  end
+
+  test "enrollment_rows paginates the result" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Pagination", slug: "rows-pagination",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    campaign.prizes.create!(name: "Prêmio", threshold: 3, position: 0)
+
+    3.times do |i|
+      Enrollment.create!(
+        customer: Customer.create!(phone: "+555399888#{2000 + i}", name: "Cust #{i}",
+                                   lgpd_opted_in_at: Time.current),
+        campaign: campaign,
+        consented_at: (i + 1).days.ago
+      )
+    end
+
+    pagy, rows = campaign.enrollment_rows(page: 1, per_page: 2)
+    assert_equal 2, rows.size
+    assert_equal 3, pagy.count
+    assert_equal 2, pagy.pages
+
+    _pagy, rows2 = campaign.enrollment_rows(page: 2, per_page: 2)
+    assert_equal 1, rows2.size
+  end
+
+  test "enrollment_rows cumulative progress is merchants_stamped / next_prize_threshold" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Cumul", slug: "rows-cumul",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    campaign.prizes.create!(name: "Tier 1", threshold: 2, position: 0)
+    campaign.prizes.create!(name: "Tier 2", threshold: 5, position: 1)
+
+    moda = Merchant.create!(organization: org, name: "Moda Cumul", slug: "moda-cumul",
+                            address: "X", latitude: -32.5, longitude: -53.3)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: moda)
+
+    customer = Customer.create!(phone: "+5553988882500", name: "Elena", lgpd_opted_in_at: Time.current)
+    Enrollment.create!(customer: customer, campaign: campaign, consented_at: 1.day.ago)
+
+    # One confirmed stamp at each of two merchants — merchants_stamped = 2 (matches Tier 1 = 2).
+    [ merchants(:one), moda ].each do |m|
+      v = Visit.create!(customer: customer, merchant: m, local_day: Date.current - rand(5))
+      Stamp.create!(visit: v, campaign: campaign, customer: customer,
+                    merchant: m, status: "confirmed", confirmed_at: Time.current)
+    end
+
+    _pagy, rows = campaign.enrollment_rows(page: 1, per_page: 25)
+    progress = rows.first[:progress]
+
+    assert_equal "cumulative", progress[:kind]
+    assert_equal 2, progress[:merchants_stamped]
+    # Already at Tier 1 (2) → next threshold is Tier 2 (5).
+    assert_equal 5, progress[:next_prize_threshold]
+  end
+
+  test "enrollment_rows cumulative progress next_prize_threshold is nil when all tiers reached" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Cumul Max", slug: "rows-cumul-max",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    campaign.prizes.create!(name: "Único", threshold: 1, position: 0)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+
+    customer = Customer.create!(phone: "+5553988883300", name: "Felipe", lgpd_opted_in_at: Time.current)
+    Enrollment.create!(customer: customer, campaign: campaign, consented_at: 1.day.ago)
+
+    v = Visit.create!(customer: customer, merchant: merchants(:one), local_day: Date.current)
+    Stamp.create!(visit: v, campaign: campaign, customer: customer,
+                  merchant: merchants(:one), status: "confirmed", confirmed_at: Time.current)
+
+    _pagy, rows = campaign.enrollment_rows(page: 1, per_page: 25)
+    progress = rows.first[:progress]
+
+    assert_equal 1, progress[:merchants_stamped]
+    assert_nil progress[:next_prize_threshold]
+  end
+
+  test "enrollment_rows simple progress is entries count with day_cap applied" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Simple Cap", slug: "rows-simple-cap",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "simple", day_cap: 1, status: "draft"
+    )
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:two))
+
+    customer = Customer.create!(phone: "+5553988884400", name: "Gabi", lgpd_opted_in_at: Time.current)
+    Enrollment.create!(customer: customer, campaign: campaign, consented_at: 1.day.ago)
+
+    # Two stamps same day at different merchants → capped to 1 entry.
+    v1 = Visit.create!(customer: customer, merchant: merchants(:one), local_day: Date.current)
+    Stamp.create!(visit: v1, campaign: campaign, customer: customer,
+                  merchant: merchants(:one), status: "confirmed", confirmed_at: Time.current)
+    v2 = Visit.create!(customer: customer, merchant: merchants(:two), local_day: Date.current)
+    Stamp.create!(visit: v2, campaign: campaign, customer: customer,
+                  merchant: merchants(:two), status: "confirmed", confirmed_at: Time.current)
+
+    _pagy, rows = campaign.enrollment_rows(page: 1, per_page: 25)
+    progress = rows.first[:progress]
+
+    assert_equal "simple", progress[:kind]
+    assert_equal 1, progress[:entries]
+  end
+
+  test "enrollment_rows simple progress without day_cap counts every confirmed stamp" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Rows Simple Uncap", slug: "rows-simple-uncap",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "simple", day_cap: nil, status: "draft"
+    )
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:two))
+
+    customer = Customer.create!(phone: "+5553988885500", name: "Hugo", lgpd_opted_in_at: Time.current)
+    Enrollment.create!(customer: customer, campaign: campaign, consented_at: 1.day.ago)
+
+    v1 = Visit.create!(customer: customer, merchant: merchants(:one), local_day: Date.current)
+    Stamp.create!(visit: v1, campaign: campaign, customer: customer,
+                  merchant: merchants(:one), status: "confirmed", confirmed_at: Time.current)
+    v2 = Visit.create!(customer: customer, merchant: merchants(:two), local_day: Date.current)
+    Stamp.create!(visit: v2, campaign: campaign, customer: customer,
+                  merchant: merchants(:two), status: "confirmed", confirmed_at: Time.current)
+
+    _pagy, rows = campaign.enrollment_rows(page: 1, per_page: 25)
+    progress = rows.first[:progress]
+
+    assert_equal "simple", progress[:kind]
+    assert_equal 2, progress[:entries]
+  end
+
   test "entries_for simple counts capped per day" do
     campaign = OrganizationCampaign.create!(@valid_attrs.merge(
       name: "Simple Cap", entry_policy: "simple", day_cap: 1, status: "active"

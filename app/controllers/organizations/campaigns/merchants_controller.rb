@@ -1,8 +1,6 @@
 # frozen_string_literal: true
 
-class Organizations::Campaigns::MerchantsController < Organizations::BaseController
-  before_action :set_campaign
-
+class Organizations::Campaigns::MerchantsController < Organizations::Campaigns::BaseController
   def create
     if ActiveModel::Type::Boolean.new.cast(params[:bulk])
       @campaign.attach_all_missing_merchants!
@@ -24,13 +22,5 @@ class Organizations::Campaigns::MerchantsController < Organizations::BaseControl
     else
       redirect_to organizations_campaign_path(@campaign), alert: join.errors[:base].first
     end
-  end
-
-  private
-
-  def set_campaign
-    @campaign = current_organization.campaigns
-                                    .where(type: "OrganizationCampaign")
-                                    .find(params[:campaign_id])
   end
 end

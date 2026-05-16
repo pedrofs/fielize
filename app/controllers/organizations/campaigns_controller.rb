@@ -22,7 +22,9 @@ class Organizations::CampaignsController < Organizations::BaseController
     add_breadcrumb label: @campaign.name, path: organizations_campaign_path(@campaign)
 
     render inertia: {
-      campaign: serialize_full(@campaign),
+      campaign: serialize_campaign_chrome(@campaign),
+      merchants_count: @campaign.merchants.count,
+      enrollments_count: @campaign.enrollments.count,
       merchant_rows: serialize_merchant_rows(@campaign),
       available_merchants: @campaign.merchants_not_yet_in_campaign.map { |m| { id: m.id, name: m.name } }
     }
@@ -137,6 +139,22 @@ class Organizations::CampaignsController < Organizations::BaseController
         joined_at: row[:joined_at]
       }
     end
+  end
+
+  def serialize_campaign_chrome(campaign)
+    {
+      id: campaign.id,
+      name: campaign.name,
+      slug: campaign.slug,
+      status: campaign.status,
+      starts_at: campaign.starts_at,
+      ends_at: campaign.ends_at,
+      entry_policy: campaign.entry_policy,
+      day_cap: campaign.day_cap,
+      prizes: campaign.prizes.order(:position).map do |p|
+        { id: p.id, name: p.name, threshold: p.threshold, position: p.position }
+      end
+    }
   end
 
   def serialize_full(campaign)
