@@ -86,9 +86,9 @@ class Organization::DashboardMetrics
 
     campaign_ids = active_campaigns.map(&:id)
 
-    enrollments_by_campaign = group_count(Enrollment.where(campaign_id: campaign_ids), since, "enrollments")
-    stamps_by_campaign      = group_count(Stamp.where(campaign_id: campaign_ids),      since, "stamps")
-    redemptions_by_campaign = group_count(Redemption.where(campaign_id: campaign_ids), since, "redemptions")
+    enrollments_by_campaign = group_count(Enrollment.where(campaign_id: campaign_ids), since)
+    stamps_by_campaign      = group_count(Stamp.where(campaign_id: campaign_ids),      since)
+    redemptions_by_campaign = group_count(Redemption.where(campaign_id: campaign_ids), since)
 
     active_campaigns.map do |campaign|
       CampaignMetrics.new(
@@ -100,8 +100,8 @@ class Organization::DashboardMetrics
     end
   end
 
-  def group_count(relation, since, table)
-    relation = relation.where("#{table}.created_at >= ?", since) if since
+  def group_count(relation, since)
+    relation = relation.where(created_at: since..) if since
     relation.group(:campaign_id).count
   end
 end
