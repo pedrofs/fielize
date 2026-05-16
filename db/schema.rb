@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_08_215718) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_16_174356) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -233,8 +233,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_08_215718) do
   create_table "visits", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "customer_id", null: false
+    t.date "local_day", null: false
     t.uuid "merchant_id", null: false
     t.datetime "updated_at", null: false
+    t.index ["customer_id", "merchant_id", "local_day"], name: "index_visits_on_customer_merchant_local_day", unique: true
     t.index ["customer_id", "merchant_id"], name: "index_visits_on_customer_id_and_merchant_id"
     t.index ["customer_id"], name: "index_visits_on_customer_id"
     t.index ["merchant_id", "created_at"], name: "index_visits_on_merchant_id_and_created_at"

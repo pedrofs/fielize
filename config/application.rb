@@ -24,12 +24,11 @@ module Fielize
       g.orm :active_record, primary_key_type: :uuid
     end
 
-    # Configuration for the application, engines, and railties goes here.
-    #
-    # These settings can be overridden in specific environments using the files
-    # in config/environments, which are processed later.
-    #
-    # config.time_zone = "Central Time (US & Canada)"
-    # config.eager_load_paths << Rails.root.join("extras")
+    # The whole product runs on Brazilian local time. The day-boundary
+    # uniqueness on `visits` is computed in this zone too — see the
+    # partial unique index added by `AddVisitDayUniqueIndex`. Changing
+    # this value desyncs the model layer's "today" from the index's,
+    # so do not flip it without coordinating both.
+    config.time_zone = "America/Sao_Paulo"
   end
 end

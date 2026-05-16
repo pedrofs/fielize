@@ -69,9 +69,14 @@ class LoyaltyCampaignLifecycleTest < ActiveSupport::TestCase
     )
   end
 
+  # One Visit per (Customer, Merchant) per local day is now a DB-level
+  # invariant, so a multi-stamp loyalty test has to span N days.
   def grant_visits(n)
     n.times do |i|
-      visit = @merchant.visits.create!(customer: @customer, created_at: i.seconds.ago)
+      day = Date.current - i.days
+      visit = @merchant.visits.create!(
+        customer: @customer, local_day: day, created_at: day.in_time_zone.beginning_of_day + 1.hour
+      )
       Stamp.create!(
         visit: visit, campaign: @loyalty, customer: @customer, merchant: @merchant,
         status: "confirmed", confirmed_at: Time.current, created_at: i.seconds.ago

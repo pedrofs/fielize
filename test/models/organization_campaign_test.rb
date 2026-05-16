@@ -99,13 +99,14 @@ class OrganizationCampaignTest < ActiveSupport::TestCase
       status: "confirmed",
       confirmed_at: Time.current
     )
-    # Same day, second stamp at a different merchant.
-    visit2 = Visit.create!(customer: customers(:maria), merchant: merchants(:one))
+    # Same day, second stamp at a different merchant (the per-day unique
+    # index on visits forbids two visits at the same merchant on one day).
+    visit2 = Visit.create!(customer: customers(:maria), merchant: merchants(:two))
     Stamp.create!(
       visit: visit2,
       campaign: campaign,
       customer: customers(:maria),
-      merchant: merchants(:one),
+      merchant: merchants(:two),
       status: "confirmed",
       confirmed_at: Time.current
     )

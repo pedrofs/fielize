@@ -1,7 +1,11 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
+# Backdated to yesterday so tests that create a fresh Visit for
+# (maria, merchants(:one)) today don't collide with the per-day
+# unique index introduced by AddVisitPerDayUniqueIndex.
 maria_at_calzados:
   customer: maria
   merchant: one
-  created_at: <%= 1.hour.ago %>
-  updated_at: <%= 1.hour.ago %>
+  local_day: <%= Date.yesterday %>
+  created_at: <%= 1.day.ago %>
+  updated_at: <%= 1.day.ago %>

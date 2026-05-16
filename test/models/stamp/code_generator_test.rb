@@ -28,7 +28,7 @@ class Stamp::CodeGeneratorTest < ActiveSupport::TestCase
     assert_equal "999999", Stamp::CodeGenerator.call(merchant_id: merchant.id, random: fake_random)
   end
 
-  test "ignores expired pending codes (treats them as free)" do
+  test "treats stale pending codes as taken regardless of expires_at" do
     merchant = merchants(:one)
     visit = Visit.create!(customer: customers(:maria), merchant: merchant)
     Stamp.create!(
@@ -38,12 +38,21 @@ class Stamp::CodeGeneratorTest < ActiveSupport::TestCase
       merchant: merchant,
       status: "pending",
       code: "424242",
-      expires_at: 1.hour.ago # already expired
+      expires_at: 1.hour.ago # codes do not expire — still considered taken
     )
 
+    sequence = [ 424242, 999999 ]
+    fake_random = Object.new
+    fake_random.define_singleton_method(:random_number) { |_n| sequence.shift }
+    assert_equal "999999", Stamp::CodeGenerator.call(merchant_id: merchant.id, random: fake_random)
+  end
+
+  test "ignores confirmed stamps even if their code is somehow still set" do
+    merchant = merchants(:one)
     fake_random = Object.new
     fake_random.define_singleton_method(:random_number) { |_n| 424242 }
-    # Expired code is no longer "taken"; generator returns it.
+    # A confirmed Stamp has code=nil already (see Merchant#confirm_stamps), but
+    # the scope is "pending" so we just verify the predicate is pending-only.
     assert_equal "424242", Stamp::CodeGenerator.call(merchant_id: merchant.id, random: fake_random)
   end
 

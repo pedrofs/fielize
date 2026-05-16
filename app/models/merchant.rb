@@ -17,6 +17,15 @@ class Merchant < ApplicationRecord
   validates :name, presence: true
   validates :latitude, :longitude, presence: true
 
+  # Loyalty + OrganizationCampaigns currently within their active window
+  # that cover this Merchant. Shared by Customer::MerchantsController#show
+  # (page-state branching) and Visit::Scannable (Stamp creation).
+  def active_campaigns_now(at: Time.current)
+    org = organization_campaigns.active_now(at: at).to_a
+    loyalty = loyalty_campaign && loyalty_campaign.status == "active" ? [ loyalty_campaign ] : []
+    org + loyalty
+  end
+
   def confirm_stamps(code:)
     Stamp.transaction do
       pending = stamps.pending

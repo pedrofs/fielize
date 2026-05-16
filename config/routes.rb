@@ -23,6 +23,10 @@ Rails.application.routes.draw do
     get    "/me",                       to: "profile#show",                           as: :profile
     delete "/me/session",               to: "sessions#destroy",                       as: :session
     post   "/me/verification_requests", to: "profile/verification_requests#create",   as: :profile_verification_requests
+
+    resources :merchants, only: :show, param: :slug, path: "m" do
+      resource :visit, only: :create, module: :merchants
+    end
   end
 
   get "/manifest.json", to: "pwa#manifest", as: :pwa_manifest

@@ -25,7 +25,7 @@ class Customer::Organizations::Campaigns::EnrollmentsController < Customer::Base
     return if @customer
 
     redirect_to(
-      customer_organization_campaign_path(@organization.slug, campaign.slug),
+      customer_organization_campaign_path(@organization.slug, params[:slug]),
       inertia: { errors: { phone: "Número de WhatsApp inválido" } }
     )
   end
