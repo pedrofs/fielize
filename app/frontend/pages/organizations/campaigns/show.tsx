@@ -13,6 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { CampaignMerchantCombobox } from "@/components/campaign-merchant-combobox"
+import { AddAllMerchantsButton } from "@/components/add-all-merchants-button"
 import type { Campaign, CampaignMerchantRow, MerchantOption } from "@/types"
 
 type Props = {
@@ -104,6 +105,10 @@ export default function CampaignShow({ campaign, merchantRows, availableMerchant
           <CampaignMerchantCombobox
             campaignId={campaign.id}
             merchants={availableMerchants}
+          />
+          <AddAllMerchantsButton
+            campaignId={campaign.id}
+            unattachedCount={availableMerchants.length}
           />
         </div>
         {merchantRows.length === 0 ? (

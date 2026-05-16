@@ -116,6 +116,32 @@ class Organizations::Campaigns::MerchantsControllerTest < ActionDispatch::Integr
       post organizations_campaign_merchants_path(@campaign), params: { merchant_id: other_merchant.id }
     end
   end
+
+  test "create with bulk=1 attaches every unattached organization merchant" do
+    # Add a second merchant in the same org so there's something to bulk-add.
+    extra = Merchant.create!(organization: organizations(:one), name: "Extra Bulk",
+                             slug: "extra-bulk", address: "X",
+                             latitude: -32.5, longitude: -53.3)
+    expected = organizations(:one).merchants.pluck(:id).sort
+
+    assert_difference -> { @campaign.campaign_merchants.count }, expected.size do
+      post organizations_campaign_merchants_path(@campaign), params: { bulk: "1" }
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+    assert_equal expected, @campaign.reload.merchant_ids.sort
+    assert_includes @campaign.merchant_ids, extra.id
+  end
+
+  test "create with bulk=1 is idempotent when nothing is unattached" do
+    organizations(:one).merchants.find_each do |m|
+      CampaignMerchant.find_or_create_by!(organization_campaign: @campaign, merchant: m)
+    end
+
+    assert_no_difference -> { @campaign.campaign_merchants.count } do
+      post organizations_campaign_merchants_path(@campaign), params: { bulk: "1" }
+    end
+    assert_redirected_to organizations_campaign_path(@campaign)
+  end
 end
 
 class Organizations::Campaigns::TerminationsControllerTest < ActionDispatch::IntegrationTest

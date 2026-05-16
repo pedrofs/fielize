@@ -63,6 +63,18 @@ class OrganizationCampaign < Campaign
                 .order(:name)
   end
 
+  # Attach every Organization Merchant that is not yet in this Campaign, in a
+  # single transaction. Idempotent: re-running attaches nothing if every
+  # Merchant is already in the join table. Returns the Merchants that were
+  # newly attached.
+  def attach_all_missing_merchants!
+    transaction do
+      merchants_not_yet_in_campaign.to_a.each do |merchant|
+        campaign_merchants.find_or_create_by!(merchant: merchant)
+      end
+    end
+  end
+
   def eligible_for?(customer, prize)
     if cumulative?
       merchants_stamped_by(customer).size >= prize.threshold

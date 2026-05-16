@@ -203,6 +203,83 @@ class OrganizationCampaignTest < ActiveSupport::TestCase
     assert_empty campaign.merchants_not_yet_in_campaign
   end
 
+  # ----- attach_all_missing_merchants! -----
+
+  test "attach_all_missing_merchants! attaches every unattached Organization Merchant" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Bulk Add", slug: "bulk-add",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    Merchant.create!(organization: org, name: "Sapataria Bulk", slug: "sapataria-bulk",
+                     address: "X", latitude: -32.5, longitude: -53.3)
+    Merchant.create!(organization: org, name: "Padaria Bulk", slug: "padaria-bulk",
+                     address: "Y", latitude: -32.5, longitude: -53.3)
+
+    expected = org.merchants.pluck(:id).sort
+
+    assert_difference -> { campaign.campaign_merchants.count }, expected.size do
+      campaign.attach_all_missing_merchants!
+    end
+
+    assert_equal expected, campaign.reload.merchant_ids.sort
+  end
+
+  test "attach_all_missing_merchants! is idempotent and skips already-attached Merchants" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Bulk Idempotent", slug: "bulk-idempotent",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    pre_attached = merchants(:one)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: pre_attached)
+    original_join_id = campaign.campaign_merchants.find_by!(merchant: pre_attached).id
+
+    campaign.attach_all_missing_merchants!
+    assert_equal org.merchants.pluck(:id).sort, campaign.reload.merchant_ids.sort
+
+    # A second call must not create duplicates and must not replace the pre-existing join row.
+    assert_no_difference -> { campaign.campaign_merchants.count } do
+      campaign.attach_all_missing_merchants!
+    end
+    assert_equal original_join_id, campaign.campaign_merchants.find_by!(merchant: pre_attached).id
+  end
+
+  test "attach_all_missing_merchants! is a no-op when every Merchant is already attached" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Bulk All In", slug: "bulk-all-in",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    org.merchants.find_each do |m|
+      CampaignMerchant.create!(organization_campaign: campaign, merchant: m)
+    end
+
+    assert_no_difference -> { campaign.campaign_merchants.count } do
+      campaign.attach_all_missing_merchants!
+    end
+  end
+
+  test "attach_all_missing_merchants! returns the newly-attached Merchants" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Bulk Returns", slug: "bulk-returns",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    pre_attached = merchants(:one)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: pre_attached)
+    added = Merchant.create!(organization: org, name: "Sapataria Return", slug: "sapataria-return",
+                             address: "X", latitude: -32.5, longitude: -53.3)
+
+    newly_attached = campaign.attach_all_missing_merchants!
+
+    assert_equal [ added.id ], newly_attached.map(&:id)
+  end
+
   test "entries_for simple counts capped per day" do
     campaign = OrganizationCampaign.create!(@valid_attrs.merge(
       name: "Simple Cap", entry_policy: "simple", day_cap: 1, status: "active"
