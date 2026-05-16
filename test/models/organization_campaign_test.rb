@@ -84,6 +84,91 @@ class OrganizationCampaignTest < ActiveSupport::TestCase
     assert_equal 0, campaign.entries_for(customers(:maria))
   end
 
+  # ----- merchants_stamp_summary -----
+
+  test "merchants_stamp_summary returns one row per attached Merchant with confirmed stamp aggregates" do
+    campaign = campaigns(:pasaporte)
+    org = organizations(:one)
+
+    # Fixtures: calzados (merchants:one) is attached to pasaporte; one confirmed
+    # stamp by maria already exists. Attach two more merchants to exercise
+    # multi-row aggregation including a zero-stamp case.
+    moda = Merchant.create!(organization: org, name: "Moda Jaguarão", slug: "moda-jaguarao",
+                            address: "X", latitude: -32.5, longitude: -53.3)
+    livraria = Merchant.create!(organization: org, name: "Livraria Central", slug: "livraria-central",
+                                address: "Y", latitude: -32.5, longitude: -53.3)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: moda)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: livraria)
+
+    # Add a second customer + a pending stamp at calzados (must be excluded),
+    # and one more confirmed stamp at moda from joao (distinct customer there).
+    visit_joao_calzados = Visit.create!(customer: customers(:joao), merchant: merchants(:one))
+    Stamp.create!(visit: visit_joao_calzados, campaign: campaign, customer: customers(:joao),
+                  merchant: merchants(:one), status: "pending",
+                  code: "ABC123", expires_at: 1.hour.from_now)
+
+    visit_joao_moda = Visit.create!(customer: customers(:joao), merchant: moda)
+    Stamp.create!(visit: visit_joao_moda, campaign: campaign, customer: customers(:joao),
+                  merchant: moda, status: "confirmed", confirmed_at: Time.current)
+
+    rows = campaign.merchants_stamp_summary.index_by { |r| r[:merchant_id] }
+
+    assert_equal 3, rows.size
+
+    calzados_row = rows[merchants(:one).id]
+    assert_equal merchants(:one).name, calzados_row[:name]
+    # Fixture confirmed stamp from maria (joao's stamp at calzados is pending and excluded).
+    assert_equal 1, calzados_row[:stamps_count]
+    assert_equal 1, calzados_row[:distinct_customers_count]
+    assert_not_nil calzados_row[:joined_at]
+
+    moda_row = rows[moda.id]
+    assert_equal 1, moda_row[:stamps_count]
+    assert_equal 1, moda_row[:distinct_customers_count]
+
+    livraria_row = rows[livraria.id]
+    assert_equal 0, livraria_row[:stamps_count]
+    assert_equal 0, livraria_row[:distinct_customers_count]
+  end
+
+  test "merchants_stamp_summary distinct_customers_count counts distinct customer ids" do
+    campaign = campaigns(:pasaporte)
+    org = organizations(:one)
+
+    moda = Merchant.create!(organization: org, name: "Moda Distinct", slug: "moda-distinct",
+                            address: "Z", latitude: -32.5, longitude: -53.3)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: moda)
+
+    # Two confirmed stamps from maria at moda (different days), one confirmed from joao.
+    # Distinct customer count should be 2, total stamps 3.
+    v1 = Visit.create!(customer: customers(:maria), merchant: moda, local_day: Date.current)
+    Stamp.create!(visit: v1, campaign: campaign, customer: customers(:maria),
+                  merchant: moda, status: "confirmed", confirmed_at: Time.current)
+
+    v2 = Visit.create!(customer: customers(:maria), merchant: moda, local_day: Date.current - 1)
+    Stamp.create!(visit: v2, campaign: campaign, customer: customers(:maria),
+                  merchant: moda, status: "confirmed", confirmed_at: 1.day.ago)
+
+    v3 = Visit.create!(customer: customers(:joao), merchant: moda)
+    Stamp.create!(visit: v3, campaign: campaign, customer: customers(:joao),
+                  merchant: moda, status: "confirmed", confirmed_at: Time.current)
+
+    moda_row = campaign.merchants_stamp_summary.find { |r| r[:merchant_id] == moda.id }
+    assert_equal 3, moda_row[:stamps_count]
+    assert_equal 2, moda_row[:distinct_customers_count]
+  end
+
+  test "merchants_stamp_summary excludes Merchants not attached to the Campaign" do
+    campaign = campaigns(:pasaporte)
+    org = organizations(:one)
+
+    detached = Merchant.create!(organization: org, name: "Outsider", slug: "outsider",
+                                address: "Q", latitude: -32.5, longitude: -53.3)
+
+    merchant_ids = campaign.merchants_stamp_summary.map { |r| r[:merchant_id] }
+    refute_includes merchant_ids, detached.id
+  end
+
   test "entries_for simple counts capped per day" do
     campaign = OrganizationCampaign.create!(@valid_attrs.merge(
       name: "Simple Cap", entry_policy: "simple", day_cap: 1, status: "active"

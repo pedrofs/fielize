@@ -24,6 +24,35 @@ class OrganizationCampaign < Campaign
     stamps.where(status: "confirmed", customer: customer)
   end
 
+  def merchants_stamp_summary
+    campaign_merchants
+      .joins(:merchant)
+      .joins(<<~SQL)
+        LEFT OUTER JOIN stamps
+          ON stamps.merchant_id = campaign_merchants.merchant_id
+         AND stamps.campaign_id = campaign_merchants.campaign_id
+         AND stamps.status = 'confirmed'
+      SQL
+      .group("campaign_merchants.merchant_id", "merchants.name", "campaign_merchants.created_at")
+      .order("merchants.name ASC")
+      .pluck(
+        "campaign_merchants.merchant_id",
+        "merchants.name",
+        Arel.sql("COUNT(stamps.id)"),
+        Arel.sql("COUNT(DISTINCT stamps.customer_id)"),
+        "campaign_merchants.created_at"
+      )
+      .map do |merchant_id, name, stamps_count, distinct_customers_count, joined_at|
+        {
+          merchant_id: merchant_id,
+          name: name,
+          stamps_count: stamps_count,
+          distinct_customers_count: distinct_customers_count,
+          joined_at: joined_at
+        }
+      end
+  end
+
   def merchants_stamped_by(customer)
     confirmed_stamps_for(customer).distinct.pluck(:merchant_id)
   end

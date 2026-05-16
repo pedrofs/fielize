@@ -105,6 +105,14 @@ export type MerchantOption = {
   name: string
 }
 
+export type CampaignMerchantRow = {
+  merchantId: string
+  name: string
+  stampsCount: number
+  distinctCustomersCount: number
+  joinedAt: string
+}
+
 export type LoyaltyProgramStatus = "draft" | "active" | "ended"
 
 export type LoyaltyPrize = {

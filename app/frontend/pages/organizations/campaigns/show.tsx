@@ -4,13 +4,22 @@ import { PencilIcon } from "lucide-react"
 
 import { AppLayout } from "@/layouts/app-layout"
 import { Button } from "@/components/ui/button"
-import type { Campaign } from "@/types"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import type { Campaign, CampaignMerchantRow } from "@/types"
 
 type Props = {
   campaign: Campaign
+  merchantRows: CampaignMerchantRow[]
 }
 
-export default function CampaignShow({ campaign }: Props) {
+export default function CampaignShow({ campaign, merchantRows }: Props) {
   const onActivate = () => {
     router.post(`/organizations/campaigns/${campaign.id}/activation`, {}, { preserveScroll: true })
   }
@@ -21,6 +30,9 @@ export default function CampaignShow({ campaign }: Props) {
     if (!confirm("Excluir esta campanha?")) return
     router.delete(`/organizations/campaigns/${campaign.id}`)
   }
+
+  const joinedDateFormatter = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" })
+  const formatJoinedAt = (iso: string) => joinedDateFormatter.format(new Date(iso))
 
   return (
     <div className="flex flex-col gap-6">
@@ -86,9 +98,45 @@ export default function CampaignShow({ campaign }: Props) {
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold">Lojistas participantes</h2>
-        <p className="text-sm text-muted-foreground">
-          {campaign.merchantIds.length} lojista(s) inscritos.
-        </p>
+        {merchantRows.length === 0 ? (
+          <p className="text-sm text-muted-foreground" data-testid="merchants-empty">
+            Ainda não há lojistas nesta campanha.
+          </p>
+        ) : (
+          <div className="rounded-md border">
+            <Table data-testid="merchants-table">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Lojista</TableHead>
+                  <TableHead className="text-right">Stamps confirmados</TableHead>
+                  <TableHead className="text-right">Clientes distintos</TableHead>
+                  <TableHead>Entrou em</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {merchantRows.map((row) => (
+                  <TableRow key={row.merchantId} data-testid={`merchant-row-${row.merchantId}`}>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/organizations/merchants/${row.merchantId}`}
+                        className="hover:underline"
+                      >
+                        {row.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{row.stampsCount}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {row.distinctCustomersCount}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatJoinedAt(row.joinedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </section>
 
       {campaign.entryPolicy === "simple" && campaign.dayCap != null && (

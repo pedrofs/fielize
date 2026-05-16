@@ -21,7 +21,10 @@ class Organizations::CampaignsController < Organizations::BaseController
     set_title @campaign.name
     add_breadcrumb label: @campaign.name, path: organizations_campaign_path(@campaign)
 
-    render inertia: { campaign: serialize_full(@campaign) }
+    render inertia: {
+      campaign: serialize_full(@campaign),
+      merchant_rows: serialize_merchant_rows(@campaign)
+    }
   end
 
   def new
@@ -121,6 +124,18 @@ class Organizations::CampaignsController < Organizations::BaseController
       merchants_count: campaign.merchants.count,
       prizes_count: campaign.prizes.count
     }
+  end
+
+  def serialize_merchant_rows(campaign)
+    campaign.merchants_stamp_summary.map do |row|
+      {
+        merchant_id: row[:merchant_id],
+        name: row[:name],
+        stamps_count: row[:stamps_count],
+        distinct_customers_count: row[:distinct_customers_count],
+        joined_at: row[:joined_at]
+      }
+    end
   end
 
   def serialize_full(campaign)
