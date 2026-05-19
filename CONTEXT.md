@@ -21,7 +21,7 @@ A person identified by a phone number (E.164, WhatsApp-capable) who participates
 _Avoid_: user, member, account, shopper
 
 **Campaign**:
-A loyalty program defined by an **Organization**. Two kinds: a per-merchant **LoyaltyCampaign** (punchcard) and an **OrganizationCampaign** that spans multiple **Merchants**.
+A loyalty program defined by an **Organization**. Two kinds: a per-merchant **LoyaltyCampaign** (punchcard) and an **OrganizationCampaign** that spans multiple **Merchants**. **OrganizationCampaign** lifecycle: `draft → active → ended → drawn`. The `drawn` transition runs all the campaign's **Raffles** in one shot and is triggered manually by the org user (no auto-draw on end — the org typically wants ceremonial control over *when* winners are announced).
 _Avoid_: program, promotion
 
 **Visit**:
@@ -37,8 +37,22 @@ A reward configured on a **Campaign** that a **Customer** can claim once they re
 _Avoid_: reward, gift, voucher
 
 **Redemption**:
-The act of a **Customer** claiming a **Prize** at a **Merchant**, recorded against a **Customer** + **Campaign** + **Prize** + **Merchant**.
+The act of a **Customer** claiming a **Prize** they're entitled to, recorded against a **Customer** + **Campaign** + **Prize**. Generalised across both **Campaign** types — the *entitlement* differs but the act is the same:
+- In a **LoyaltyCampaign**, the **Customer** redeems at a specific **Merchant** once they hit the **Prize** threshold; validated by a merchant-side **User**.
+- In an **OrganizationCampaign**, the **Customer** redeems at the **Organization** (e.g., CDL HQ — no **Merchant** involved) the **Prize** they won via a **Raffle**; validated by an organization-side **User**. The **Redemption** points back to the specific winning **Raffle**.
+
+The validator column is generalised to `redeemed_by_user_id` (was `merchant_user_id`). For loyalty it's the merchant-side **User**; for organization-campaign raffle redemptions it's the org-side **User** marking "entregue".
 _Avoid_: claim, payout
+
+**Raffle**:
+The draw that picks a winning **Customer** for a single **Prize** at the end of an **OrganizationCampaign**. Scoped per-**Prize** (one **Raffle** per **Prize**), not per-**Campaign** — `prize.raffle.winner` is the natural reference. **LoyaltyCampaigns** have no **Raffles**; their **Prizes** are redeemed directly. Holds the drawn-at timestamp, the winner (a **Customer**), and the seed used so the draw is replayable. **Order**: when the **Campaign** ends, **Raffles** run in `Prize.position` order; the org user controls draw order by ordering **Prizes** in the form. **Constraint**: a **Customer** can win at most one **Prize** per **Campaign** — once drawn for one **Prize**, they are excluded from the entry pools of the remaining **Raffles** in the same **Campaign**.
+_Avoid_: drawing, lottery, giveaway, sorteio (Portuguese-only term — use **Raffle** in code/types, "Sorteio" only in UI copy)
+
+**Raffle Entry**:
+A literal "slip in the hat" — one **Customer**'s presence in the pool of a single **Raffle**. Materialised at draw time, one record per individual entry: a **Customer** with 10 confirmed **Stamps** in a `simple` **Campaign** produces 10 **Raffle Entries** per **Prize** they're eligible for; a **Customer** who crossed a `cumulative` **Prize**'s threshold produces 1 **Raffle Entry** for that **Prize**. During an active **Campaign**, entry counts are computed on the fly (no records); the rows only exist post-draw. Marked with the winning **Raffle** when drawn.
+_Avoid_: ticket, ballot, chance
+
+**Empty pool**: a **Raffle** whose eligible pool was empty at draw time is still recorded — `status: "no_winner"`, `winner_customer_id: nil`. The other **Raffles** in the same **Campaign** still run. The **Prize** is not retroactively revived; redraws are an explicit, org-user-triggered follow-on (out of v1 scope).
 
 **Enrollment**:
 A **Customer**'s attachment to a **Campaign**, capturing phone + LGPD opt-in. Created either *explicitly* (tapping "Enroll" on the **Organization**'s landing page) or *implicitly* (the first **Visit** at a covered **Merchant** auto-enrolls into every active **Campaign** that covers that **Merchant**). Both paths converge on the same **Customer** record, keyed by phone.

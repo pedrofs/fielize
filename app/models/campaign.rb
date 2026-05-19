@@ -4,7 +4,7 @@ class Campaign < ApplicationRecord
   include Sluggable
   sluggable from: :name, scope: :organization_id
 
-  STATUSES = %w[draft active ended].freeze
+  STATUSES = %w[draft active ended drawn].freeze
 
   belongs_to :organization
   belongs_to :merchant, optional: true   # required only for LoyaltyCampaign
@@ -26,6 +26,7 @@ class Campaign < ApplicationRecord
   scope :draft,  -> { where(status: "draft") }
   scope :active, -> { where(status: "active") }
   scope :ended,  -> { where(status: "ended") }
+  scope :drawn,  -> { where(status: "drawn") }
 
   # Customer-facing "running right now" filter: status is active AND the
   # campaign is within its time window (LoyaltyCampaigns omit start/end —
@@ -37,6 +38,7 @@ class Campaign < ApplicationRecord
   def draft?;    status == "draft";    end
   def active?;   status == "active";   end
   def ended?;    status == "ended";    end
+  def drawn?;    status == "drawn";    end
 
   # Idempotent on (customer, campaign): repeat calls return the existing
   # row without creating a duplicate or re-firing the WhatsApp job.

@@ -54,7 +54,7 @@ export type SharedProps = {
 }
 
 export type EntryPolicy = "simple" | "cumulative"
-export type CampaignStatus = "draft" | "active" | "ended"
+export type CampaignStatus = "draft" | "active" | "ended" | "drawn"
 
 export type Prize = {
   id: string
@@ -112,17 +112,36 @@ export type CampaignMerchantRow = {
   joinedAt: string
 }
 
-export type RafflePanelPrize = {
+export type RafflePanelOpenPrize = {
   id: string
   name: string
   threshold: number | null
   poolSize: number
 }
 
-export type RafflePanelData = {
-  state: "open"
-  prizes: RafflePanelPrize[]
+export type RaffleWinner = {
+  displayName: string
+  phoneMasked: string | null
 }
+
+export type RaffleStatus = "drawn" | "no_winner"
+
+export type RaffleSummary = {
+  status: RaffleStatus
+  drawnAt: string
+  winner?: RaffleWinner
+}
+
+export type RafflePanelDrawnPrize = {
+  id: string
+  name: string
+  threshold: number | null
+  raffle: RaffleSummary | null
+}
+
+export type RafflePanelData =
+  | { state: "open"; prizes: RafflePanelOpenPrize[] }
+  | { state: "drawn"; prizes: RafflePanelDrawnPrize[] }
 
 export type CampaignChrome = {
   id: string

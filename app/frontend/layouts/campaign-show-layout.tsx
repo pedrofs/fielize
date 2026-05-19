@@ -5,7 +5,7 @@ import type { ReactNode } from "react"
 import { AppLayout } from "@/layouts/app-layout"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { CampaignChrome } from "@/types"
+import type { CampaignChrome, RaffleSummary } from "@/types"
 
 type Tab = "lojistas" | "clientes"
 
@@ -30,6 +30,10 @@ export function CampaignShowLayout({
   }
   const onEnd = () => {
     router.post(`/organizations/campaigns/${campaign.id}/termination`, {}, { preserveScroll: true })
+  }
+  const onDraw = () => {
+    if (!confirm("Sortear os vencedores agora? Esta ação é irreversível.")) return
+    router.post(`/organizations/campaigns/${campaign.id}/raffles`, {}, { preserveScroll: true })
   }
   const onDelete = () => {
     if (!confirm("Excluir esta campanha?")) return
@@ -76,7 +80,15 @@ export function CampaignShowLayout({
             </>
           )}
           {campaign.status === "ended" && (
-            <span className="text-sm text-muted-foreground">Encerrada</span>
+            <>
+              <span className="text-sm text-muted-foreground">Encerrada</span>
+              <Button onClick={onDraw} data-testid="campaign-sortear">
+                Sortear
+              </Button>
+            </>
+          )}
+          {campaign.status === "drawn" && (
+            <span className="text-sm text-muted-foreground">Sorteada</span>
           )}
         </div>
       </div>
@@ -115,45 +127,106 @@ export function CampaignShowLayout({
 
 function RafflePanel({ campaign }: { campaign: CampaignChrome }) {
   if (campaign.rafflePanel == null) return null
-  const { prizes } = campaign.rafflePanel
+  const panel = campaign.rafflePanel
   const isCumulative = campaign.entryPolicy === "cumulative"
 
   return (
     <section className="flex flex-col gap-3" data-testid="raffle-panel">
       <h2 className="text-lg font-semibold">Sorteio</h2>
-      {prizes.length === 0 ? (
+      {panel.prizes.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhum prêmio configurado.</p>
       ) : (
         <div className="rounded-md border">
           <ul className="divide-y">
-            {prizes.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center justify-between gap-4 p-4 text-sm"
-                data-testid={`raffle-prize-${p.id}`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="font-medium">{p.name}</span>
-                  {isCumulative && p.threshold != null && (
-                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {p.threshold} stamps
+            {panel.state === "open"
+              ? panel.prizes.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-4 p-4 text-sm"
+                    data-testid={`raffle-prize-${p.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{p.name}</span>
+                      {isCumulative && p.threshold != null && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          {p.threshold} stamps
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className="text-muted-foreground tabular-nums"
+                      data-testid={`raffle-pool-size-${p.id}`}
+                    >
+                      {isCumulative
+                        ? `${p.poolSize} elegíveis`
+                        : `${p.poolSize} entradas`}
                     </span>
-                  )}
-                </div>
-                <span
-                  className="text-muted-foreground tabular-nums"
-                  data-testid={`raffle-pool-size-${p.id}`}
-                >
-                  {isCumulative
-                    ? `${p.poolSize} elegíveis`
-                    : `${p.poolSize} entradas`}
-                </span>
-              </li>
-            ))}
+                  </li>
+                ))
+              : panel.prizes.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-4 p-4 text-sm"
+                    data-testid={`raffle-prize-${p.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-medium">{p.name}</span>
+                      {isCumulative && p.threshold != null && (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                          {p.threshold} stamps
+                        </span>
+                      )}
+                    </div>
+                    <RaffleWinnerCell prizeId={p.id} raffle={p.raffle} />
+                  </li>
+                ))}
           </ul>
         </div>
       )}
     </section>
+  )
+}
+
+function RaffleWinnerCell({
+  prizeId,
+  raffle,
+}: {
+  prizeId: string
+  raffle: RaffleSummary | null
+}) {
+  if (raffle == null) {
+    return (
+      <span
+        className="text-muted-foreground"
+        data-testid={`raffle-winner-${prizeId}`}
+      >
+        —
+      </span>
+    )
+  }
+
+  if (raffle.status === "no_winner") {
+    return (
+      <span
+        className="font-medium text-muted-foreground"
+        data-testid={`raffle-no-winner-${prizeId}`}
+      >
+        Sem vencedor
+      </span>
+    )
+  }
+
+  const drawnAt = new Date(raffle.drawnAt).toLocaleString("pt-BR")
+  return (
+    <div
+      className="flex flex-col items-end text-right"
+      data-testid={`raffle-winner-${prizeId}`}
+    >
+      <span className="font-medium">{raffle.winner?.displayName}</span>
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {raffle.winner?.phoneMasked} · {drawnAt}
+      </span>
+    </div>
   )
 }
 

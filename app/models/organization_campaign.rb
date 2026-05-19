@@ -2,6 +2,9 @@
 
 class OrganizationCampaign < Campaign
   include Activatable
+  include Drawable
+
+  has_many :raffles, foreign_key: :campaign_id, dependent: :destroy, class_name: "Raffle"
 
   ENTRY_POLICIES = %w[simple cumulative].freeze
 
@@ -125,24 +128,14 @@ class OrganizationCampaign < Campaign
   end
 
   # Show-page "Sorteio" panel payload. Nil on `draft` (pool size is
-  # meaningless before the campaign runs); otherwise carries the raffle
-  # state and per-Prize pool sizes. Slice 1 only exposes the "open"
-  # state (active or ended pre-draw); later slices grow this to surface
-  # winners and delivery state.
+  # meaningless before the campaign runs); on active/ended it carries
+  # pool sizes; once drawn it carries per-Prize winner + drawn_at, or
+  # no_winner status when the pool was empty.
   def raffle_panel
-    return nil unless active? || ended?
-    pool_sizes = raffle_pool_sizes
-    {
-      state: "open",
-      prizes: prizes.order(:position).map do |prize|
-        {
-          id: prize.id,
-          name: prize.name,
-          threshold: prize.threshold,
-          pool_size: pool_sizes[prize.id] || 0
-        }
-      end
-    }
+    return nil if draft?
+    return drawn_raffle_panel if drawn?
+
+    open_raffle_panel
   end
 
   # Raffle pool size per Prize, returned as `{prize_id => count}`.
@@ -183,6 +176,51 @@ class OrganizationCampaign < Campaign
   end
 
   private
+
+  def open_raffle_panel
+    pool_sizes = raffle_pool_sizes
+    {
+      state: "open",
+      prizes: prizes.order(:position).map do |prize|
+        {
+          id: prize.id,
+          name: prize.name,
+          threshold: prize.threshold,
+          pool_size: pool_sizes[prize.id] || 0
+        }
+      end
+    }
+  end
+
+  def drawn_raffle_panel
+    raffles_by_prize = raffles.includes(:winner_customer).index_by(&:prize_id)
+    {
+      state: "drawn",
+      prizes: prizes.order(:position).map do |prize|
+        raffle = raffles_by_prize[prize.id]
+        {
+          id: prize.id,
+          name: prize.name,
+          threshold: prize.threshold,
+          raffle: serialize_raffle(raffle)
+        }
+      end
+    }
+  end
+
+  def serialize_raffle(raffle)
+    return nil if raffle.nil?
+    base = { status: raffle.status, drawn_at: raffle.drawn_at }
+    return base if raffle.no_winner?
+
+    winner = raffle.winner_customer
+    base.merge(
+      winner: {
+        display_name: winner.display_name,
+        phone_masked: mask_phone(winner.phone)
+      }
+    )
+  end
 
   def build_enrollment_row(record)
     stamps_count = record.confirmed_stamps_count.to_i

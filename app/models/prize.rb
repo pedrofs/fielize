@@ -2,6 +2,7 @@
 
 class Prize < ApplicationRecord
   belongs_to :campaign
+  has_one    :raffle, dependent: :destroy
   has_many   :redemptions, dependent: :restrict_with_exception
 
   validates :name, presence: true

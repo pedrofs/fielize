@@ -43,6 +43,7 @@ Rails.application.routes.draw do
     resources :campaigns do
       resource  :activation,  only: :create, module: :campaigns
       resource  :termination, only: :create, module: :campaigns
+      resources :raffles,     only: :create, module: :campaigns
       resources :merchants,   only: %i[create destroy], module: :campaigns
       resources :enrollments, only: :index,             module: :campaigns
     end

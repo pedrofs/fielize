@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_16_203008) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -173,6 +173,29 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_16_203008) do
     t.index ["campaign_id"], name: "index_prizes_on_campaign_id"
   end
 
+  create_table "raffle_entries", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "customer_id", null: false
+    t.uuid "raffle_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["customer_id"], name: "index_raffle_entries_on_customer_id"
+    t.index ["raffle_id"], name: "index_raffle_entries_on_raffle_id"
+  end
+
+  create_table "raffles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "campaign_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "drawn_at", null: false
+    t.uuid "prize_id", null: false
+    t.string "seed", null: false
+    t.string "status", null: false
+    t.datetime "updated_at", null: false
+    t.uuid "winner_customer_id"
+    t.index ["campaign_id"], name: "index_raffles_on_campaign_id"
+    t.index ["prize_id"], name: "index_raffles_on_prize_id", unique: true
+    t.index ["winner_customer_id"], name: "index_raffles_on_winner_customer_id"
+  end
+
   create_table "redemptions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "campaign_id", null: false
     t.datetime "created_at", null: false
@@ -260,6 +283,11 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_16_203008) do
   add_foreign_key "organization_memberships", "users"
   add_foreign_key "organization_memberships", "users", column: "invited_by_id"
   add_foreign_key "prizes", "campaigns"
+  add_foreign_key "raffle_entries", "customers"
+  add_foreign_key "raffle_entries", "raffles"
+  add_foreign_key "raffles", "campaigns"
+  add_foreign_key "raffles", "customers", column: "winner_customer_id"
+  add_foreign_key "raffles", "prizes"
   add_foreign_key "redemptions", "campaigns"
   add_foreign_key "redemptions", "customers"
   add_foreign_key "redemptions", "merchants"
