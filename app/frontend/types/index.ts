@@ -126,16 +126,23 @@ export type RaffleWinner = {
 
 export type RaffleStatus = "drawn" | "no_winner"
 
+export type RaffleRedemption = {
+  redeemedAt: string
+  redeemedByName: string | null
+}
+
 export type RaffleSummary = {
   status: RaffleStatus
   drawnAt: string
   winner?: RaffleWinner
+  redemption: RaffleRedemption | null
 }
 
 export type RafflePanelDrawnPrize = {
   id: string
   name: string
   threshold: number | null
+  raffleId: string | null
   raffle: RaffleSummary | null
 }
 

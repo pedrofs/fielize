@@ -10,39 +10,39 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
+ActiveRecord::Schema[8.2].define(version: 2026_05_19_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
   create_table "action_text_rich_texts", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.text "body"
-    t.datetime "created_at", null: false
     t.string "name", null: false
-    t.uuid "record_id", null: false
+    t.text "body"
     t.string "record_type", null: false
+    t.uuid "record_id", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["record_type", "record_id", "name"], name: "index_action_text_rich_texts_uniqueness", unique: true
   end
 
   create_table "active_storage_attachments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.string "name", null: false
+    t.string "record_type", null: false
+    t.uuid "record_id", null: false
     t.uuid "blob_id", null: false
     t.datetime "created_at", null: false
-    t.string "name", null: false
-    t.uuid "record_id", null: false
-    t.string "record_type", null: false
     t.index ["blob_id"], name: "index_active_storage_attachments_on_blob_id"
     t.index ["record_type", "record_id", "name", "blob_id"], name: "index_active_storage_attachments_uniqueness", unique: true
   end
 
   create_table "active_storage_blobs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.bigint "byte_size", null: false
-    t.string "checksum"
-    t.string "content_type"
-    t.datetime "created_at", null: false
-    t.string "filename", null: false
     t.string "key", null: false
+    t.string "filename", null: false
+    t.string "content_type"
     t.text "metadata"
     t.string "service_name", null: false
+    t.bigint "byte_size", null: false
+    t.string "checksum"
+    t.datetime "created_at", null: false
     t.index ["key"], name: "index_active_storage_blobs_on_key", unique: true
   end
 
@@ -95,10 +95,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
   end
 
   create_table "enrollments", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "customer_id", null: false
     t.uuid "campaign_id", null: false
     t.datetime "consented_at", null: false
     t.datetime "created_at", null: false
-    t.uuid "customer_id", null: false
     t.datetime "updated_at", null: false
     t.index ["campaign_id"], name: "index_enrollments_on_campaign_id"
     t.index ["customer_id", "campaign_id"], name: "index_enrollments_on_customer_id_and_campaign_id", unique: true
@@ -124,14 +124,14 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
   end
 
   create_table "merchants", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.string "address"
     t.datetime "created_at", null: false
-    t.decimal "latitude", precision: 10, scale: 6
-    t.decimal "longitude", precision: 10, scale: 6
     t.string "name", null: false
     t.uuid "organization_id", null: false
     t.string "slug", null: false
     t.datetime "updated_at", null: false
+    t.string "address"
+    t.decimal "latitude", precision: 10, scale: 6
+    t.decimal "longitude", precision: 10, scale: 6
     t.index ["organization_id"], name: "index_merchants_on_organization_id"
     t.index ["slug"], name: "index_merchants_on_slug", unique: true
   end
@@ -155,10 +155,10 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
     t.datetime "created_at", null: false
     t.string "image_url"
     t.string "name"
-    t.string "primary_color"
-    t.string "secondary_color"
     t.string "slug", null: false
     t.datetime "updated_at", null: false
+    t.string "primary_color"
+    t.string "secondary_color"
     t.index ["slug"], name: "index_organizations_on_slug", unique: true
   end
 
@@ -174,23 +174,23 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
   end
 
   create_table "raffle_entries", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.uuid "customer_id", null: false
     t.uuid "raffle_id", null: false
+    t.uuid "customer_id", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["customer_id"], name: "index_raffle_entries_on_customer_id"
     t.index ["raffle_id"], name: "index_raffle_entries_on_raffle_id"
   end
 
   create_table "raffles", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "campaign_id", null: false
-    t.datetime "created_at", null: false
-    t.datetime "drawn_at", null: false
     t.uuid "prize_id", null: false
+    t.uuid "campaign_id", null: false
+    t.uuid "winner_customer_id"
+    t.datetime "drawn_at", null: false
     t.string "seed", null: false
     t.string "status", null: false
+    t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.uuid "winner_customer_id"
     t.index ["campaign_id"], name: "index_raffles_on_campaign_id"
     t.index ["prize_id"], name: "index_raffles_on_prize_id", unique: true
     t.index ["winner_customer_id"], name: "index_raffles_on_winner_customer_id"
@@ -201,16 +201,18 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
     t.datetime "created_at", null: false
     t.uuid "customer_id", null: false
     t.uuid "merchant_id"
-    t.uuid "merchant_user_id"
+    t.uuid "redeemed_by_user_id"
     t.uuid "prize_id", null: false
-    t.integer "threshold_snapshot", null: false
+    t.integer "threshold_snapshot"
+    t.uuid "raffle_id"
     t.index ["campaign_id"], name: "index_redemptions_on_campaign_id"
     t.index ["customer_id", "campaign_id"], name: "index_redemptions_on_customer_id_and_campaign_id"
     t.index ["customer_id"], name: "index_redemptions_on_customer_id"
     t.index ["merchant_id", "created_at"], name: "index_redemptions_on_merchant_id_and_created_at"
     t.index ["merchant_id"], name: "index_redemptions_on_merchant_id"
-    t.index ["merchant_user_id"], name: "index_redemptions_on_merchant_user_id"
     t.index ["prize_id"], name: "index_redemptions_on_prize_id"
+    t.index ["raffle_id"], name: "index_redemptions_on_raffle_id"
+    t.index ["redeemed_by_user_id"], name: "index_redemptions_on_redeemed_by_user_id"
   end
 
   create_table "sessions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -256,9 +258,9 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
   create_table "visits", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "customer_id", null: false
-    t.date "local_day", null: false
     t.uuid "merchant_id", null: false
     t.datetime "updated_at", null: false
+    t.date "local_day", null: false
     t.index ["customer_id", "merchant_id", "local_day"], name: "index_visits_on_customer_merchant_local_day", unique: true
     t.index ["customer_id", "merchant_id"], name: "index_visits_on_customer_id_and_merchant_id"
     t.index ["customer_id"], name: "index_visits_on_customer_id"
@@ -292,7 +294,8 @@ ActiveRecord::Schema[8.2].define(version: 2026_05_19_120100) do
   add_foreign_key "redemptions", "customers"
   add_foreign_key "redemptions", "merchants"
   add_foreign_key "redemptions", "prizes"
-  add_foreign_key "redemptions", "users", column: "merchant_user_id"
+  add_foreign_key "redemptions", "raffles"
+  add_foreign_key "redemptions", "users", column: "redeemed_by_user_id"
   add_foreign_key "sessions", "users"
   add_foreign_key "stamps", "campaigns"
   add_foreign_key "stamps", "customers"

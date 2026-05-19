@@ -12,6 +12,7 @@ class Raffle < ApplicationRecord
   belongs_to :winner_customer, class_name: "Customer", optional: true
 
   has_many :raffle_entries, dependent: :destroy
+  has_one  :redemption, dependent: :restrict_with_exception
 
   validates :status, inclusion: { in: STATUSES }
   validates :seed,   presence: true

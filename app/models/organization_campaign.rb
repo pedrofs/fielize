@@ -119,6 +119,30 @@ class OrganizationCampaign < Campaign
     end
   end
 
+  # Mark a Raffle winner's Prize as delivered. Idempotent on the prize's
+  # Raffle: a second call returns the existing Redemption row.
+  def redeem!(customer:, prize:, by:)
+    transaction do
+      raffle = prize.raffle
+      if raffle.nil? || !raffle.drawn?
+        errors.add(:base, "Sorteio ainda não realizado para este prêmio.")
+        raise ActiveRecord::RecordInvalid.new(self)
+      end
+      if raffle.winner_customer_id != customer.id
+        errors.add(:base, "Cliente não é o vencedor deste sorteio.")
+        raise ActiveRecord::RecordInvalid.new(self)
+      end
+
+      existing = redemptions.find_by(raffle_id: raffle.id)
+      return existing if existing
+
+      redemptions.create!(
+        customer: customer, prize: prize, raffle: raffle,
+        redeemed_by_user: by
+      )
+    end
+  end
+
   def eligible_for?(customer, prize)
     if cumulative?
       merchants_stamped_by(customer).size >= prize.threshold
@@ -193,7 +217,7 @@ class OrganizationCampaign < Campaign
   end
 
   def drawn_raffle_panel
-    raffles_by_prize = raffles.includes(:winner_customer).index_by(&:prize_id)
+    raffles_by_prize = raffles.includes(:winner_customer, redemption: :redeemed_by_user).index_by(&:prize_id)
     {
       state: "drawn",
       prizes: prizes.order(:position).map do |prize|
@@ -202,6 +226,7 @@ class OrganizationCampaign < Campaign
           id: prize.id,
           name: prize.name,
           threshold: prize.threshold,
+          raffle_id: raffle&.id,
           raffle: serialize_raffle(raffle)
         }
       end
@@ -210,7 +235,7 @@ class OrganizationCampaign < Campaign
 
   def serialize_raffle(raffle)
     return nil if raffle.nil?
-    base = { status: raffle.status, drawn_at: raffle.drawn_at }
+    base = { status: raffle.status, drawn_at: raffle.drawn_at, redemption: serialize_redemption(raffle.redemption) }
     return base if raffle.no_winner?
 
     winner = raffle.winner_customer
@@ -220,6 +245,20 @@ class OrganizationCampaign < Campaign
         phone_masked: mask_phone(winner.phone)
       }
     )
+  end
+
+  def serialize_redemption(redemption)
+    return nil if redemption.nil?
+    {
+      redeemed_at: redemption.created_at,
+      redeemed_by_name: user_display_name(redemption.redeemed_by_user)
+    }
+  end
+
+  def user_display_name(user)
+    return nil if user.nil?
+    full = [ user.first_name, user.last_name ].compact_blank.join(" ")
+    full.presence || user.email
   end
 
   def build_enrollment_row(record)

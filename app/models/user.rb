@@ -4,7 +4,7 @@ class User < ApplicationRecord
   has_many :organization_memberships, dependent: :destroy
   has_many :organizations, through: :organization_memberships
   has_many :invitations_sent, class_name: "Invitation", foreign_key: :invited_by_id, dependent: :nullify
-  has_many :redemptions, foreign_key: :merchant_user_id, dependent: :nullify
+  has_many :redemptions, foreign_key: :redeemed_by_user_id, dependent: :nullify
 
   scope :with_merchant, -> { joins(:organization_memberships).where.not(organization_memberships: { merchant_id: nil }).distinct }
 

@@ -42,7 +42,7 @@ class LoyaltyCampaign < Campaign
 
       redemptions.create!(
         customer: customer, prize: prize, merchant: merchant,
-        merchant_user: by, threshold_snapshot: prize.threshold
+        redeemed_by_user: by, threshold_snapshot: prize.threshold
       )
     end
   end

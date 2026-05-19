@@ -35,7 +35,7 @@ class LoyaltyCampaignLifecycleTest < ActiveSupport::TestCase
     end
     redemption = Redemption.last
     assert_equal prize.threshold, redemption.threshold_snapshot
-    assert_equal user.id, redemption.merchant_user_id
+    assert_equal user.id, redemption.redeemed_by_user_id
   end
 
   test "redeem! raises when balance is insufficient" do

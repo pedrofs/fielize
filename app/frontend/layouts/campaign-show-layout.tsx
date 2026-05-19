@@ -177,7 +177,12 @@ function RafflePanel({ campaign }: { campaign: CampaignChrome }) {
                         </span>
                       )}
                     </div>
-                    <RaffleWinnerCell prizeId={p.id} raffle={p.raffle} />
+                    <RaffleWinnerCell
+                      campaignId={campaign.id}
+                      prizeId={p.id}
+                      raffleId={p.raffleId}
+                      raffle={p.raffle}
+                    />
                   </li>
                 ))}
           </ul>
@@ -188,10 +193,14 @@ function RafflePanel({ campaign }: { campaign: CampaignChrome }) {
 }
 
 function RaffleWinnerCell({
+  campaignId,
   prizeId,
+  raffleId,
   raffle,
 }: {
+  campaignId: string
   prizeId: string
+  raffleId: string | null
   raffle: RaffleSummary | null
 }) {
   if (raffle == null) {
@@ -217,6 +226,15 @@ function RaffleWinnerCell({
   }
 
   const drawnAt = new Date(raffle.drawnAt).toLocaleString("pt-BR")
+  const onDeliver = () => {
+    if (raffleId == null) return
+    router.post(
+      `/organizations/campaigns/${campaignId}/raffles/${raffleId}/redemption`,
+      {},
+      { preserveScroll: true },
+    )
+  }
+
   return (
     <div
       className="flex flex-col items-end text-right"
@@ -226,6 +244,27 @@ function RaffleWinnerCell({
       <span className="text-xs text-muted-foreground tabular-nums">
         {raffle.winner?.phoneMasked} · {drawnAt}
       </span>
+      {raffle.redemption == null ? (
+        <Button
+          size="sm"
+          className="mt-2"
+          onClick={onDeliver}
+          data-testid={`raffle-deliver-${prizeId}`}
+        >
+          Marcar como entregue
+        </Button>
+      ) : (
+        <span
+          className="mt-2 text-xs text-muted-foreground"
+          data-testid={`raffle-delivered-${prizeId}`}
+        >
+          Entregue em{" "}
+          {new Date(raffle.redemption.redeemedAt).toLocaleDateString("pt-BR")}
+          {raffle.redemption.redeemedByName
+            ? ` por ${raffle.redemption.redeemedByName}`
+            : ""}
+        </span>
+      )}
     </div>
   )
 }

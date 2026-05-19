@@ -22,14 +22,14 @@ class UserTest < ActiveSupport::TestCase
     assert_equal "test@example.com", user.email
   end
 
-  test "redemptions association via merchant_user_id" do
+  test "redemptions association via redeemed_by_user_id" do
     staff = users(:merchant_staff)
     redemption = Redemption.create!(
       customer: customers(:maria),
       campaign: campaigns(:cartao_calzados),
       prize: prizes(:cartao_cafe),
       merchant: merchants(:one),
-      merchant_user: staff,
+      redeemed_by_user: staff,
       threshold_snapshot: 5
     )
     assert_includes staff.redemptions, redemption

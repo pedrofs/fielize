@@ -238,11 +238,15 @@ class Organization::DashboardMetricsTest < ActiveSupport::TestCase
 
   def create_redemption(customer, campaign, at:)
     prize = campaign.prizes.create!(name: "Prize-#{SecureRandom.hex(2)}")
+    raffle = Raffle.create!(
+      campaign: campaign, prize: prize, winner_customer: customer,
+      drawn_at: at, seed: SecureRandom.hex(16), status: "drawn"
+    )
     Redemption.create!(
       customer: customer,
       campaign: campaign,
       prize: prize,
-      threshold_snapshot: 1,
+      raffle: raffle,
       created_at: at
     )
   end
