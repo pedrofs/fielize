@@ -81,25 +81,7 @@ export function CampaignShowLayout({
         </div>
       </div>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold">Prêmios</h2>
-        {campaign.prizes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum prêmio configurado.</p>
-        ) : (
-          <div className="rounded-md border">
-            <ul className="divide-y">
-              {campaign.prizes.map((p) => (
-                <li key={p.id} className="flex items-center justify-between p-4 text-sm">
-                  <span className="font-medium">{p.name}</span>
-                  {campaign.entryPolicy === "cumulative" && p.threshold != null && (
-                    <span className="text-muted-foreground">{p.threshold} stamps</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </section>
+      <RafflePanel campaign={campaign} />
 
       <div className="border-b" data-testid="campaign-tab-bar">
         <nav className="-mb-px flex gap-6 text-sm">
@@ -128,6 +110,50 @@ export function CampaignShowLayout({
         </p>
       )}
     </div>
+  )
+}
+
+function RafflePanel({ campaign }: { campaign: CampaignChrome }) {
+  if (campaign.rafflePanel == null) return null
+  const { prizes } = campaign.rafflePanel
+  const isCumulative = campaign.entryPolicy === "cumulative"
+
+  return (
+    <section className="flex flex-col gap-3" data-testid="raffle-panel">
+      <h2 className="text-lg font-semibold">Sorteio</h2>
+      {prizes.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum prêmio configurado.</p>
+      ) : (
+        <div className="rounded-md border">
+          <ul className="divide-y">
+            {prizes.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-4 p-4 text-sm"
+                data-testid={`raffle-prize-${p.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{p.name}</span>
+                  {isCumulative && p.threshold != null && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {p.threshold} stamps
+                    </span>
+                  )}
+                </div>
+                <span
+                  className="text-muted-foreground tabular-nums"
+                  data-testid={`raffle-pool-size-${p.id}`}
+                >
+                  {isCumulative
+                    ? `${p.poolSize} elegíveis`
+                    : `${p.poolSize} entradas`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   )
 }
 

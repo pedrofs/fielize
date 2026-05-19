@@ -481,6 +481,156 @@ class OrganizationCampaignTest < ActiveSupport::TestCase
     assert_equal 2, progress[:entries]
   end
 
+  # ----- raffle_pool_sizes -----
+
+  test "raffle_pool_sizes (cumulative) counts customers whose distinct-merchants reached each prize threshold" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Pool Cumul", slug: "pool-cumul",
+      starts_at: 1.day.ago, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "active"
+    )
+    p3 = campaign.prizes.create!(name: "Tier A", threshold: 3, position: 0)
+    p5 = campaign.prizes.create!(name: "Tier B", threshold: 5, position: 1)
+    p8 = campaign.prizes.create!(name: "Tier C", threshold: 8, position: 2)
+
+    # Eight distinct merchants in the campaign.
+    merchants_list = 8.times.map do |i|
+      m = Merchant.create!(organization: org, name: "Pool M#{i}", slug: "pool-m-#{i}",
+                           address: "X", latitude: -32.5, longitude: -53.3)
+      CampaignMerchant.create!(organization_campaign: campaign, merchant: m)
+      m
+    end
+
+    # Three customers with 8 / 5 / 3 distinct-merchant confirmed stamps.
+    [ 8, 5, 3 ].each_with_index do |n, idx|
+      cust = Customer.create!(phone: "+555399898#{idx}001", name: "C#{idx}", lgpd_opted_in_at: Time.current)
+      merchants_list.first(n).each_with_index do |m, j|
+        v = Visit.create!(customer: cust, merchant: m, local_day: Date.current - j)
+        Stamp.create!(visit: v, campaign: campaign, customer: cust, merchant: m,
+                      status: "confirmed", confirmed_at: Time.current)
+      end
+    end
+
+    sizes = campaign.raffle_pool_sizes
+
+    assert_equal 3, sizes[p3.id], "≥3 distinct merchants: 3 customers"
+    assert_equal 2, sizes[p5.id], "≥5 distinct merchants: 2 customers"
+    assert_equal 1, sizes[p8.id], "≥8 distinct merchants: 1 customer"
+  end
+
+  test "raffle_pool_sizes (cumulative) excludes pending stamps" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Pool Cumul Pending", slug: "pool-cumul-pending",
+      starts_at: 1.day.ago, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "active"
+    )
+    p1 = campaign.prizes.create!(name: "Tier", threshold: 1, position: 0)
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+
+    cust = Customer.create!(phone: "+5553988887701", name: "Pendente", lgpd_opted_in_at: Time.current)
+    visit = Visit.create!(customer: cust, merchant: merchants(:one), local_day: Date.current)
+    Stamp.create!(visit: visit, campaign: campaign, customer: cust, merchant: merchants(:one),
+                  status: "pending", code: "ZZZ123", expires_at: 1.hour.from_now)
+
+    assert_equal 0, campaign.raffle_pool_sizes[p1.id]
+  end
+
+  test "raffle_pool_sizes (simple, capped) sums min(stamps_per_day, day_cap) across customers" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Pool Simple Cap", slug: "pool-simple-cap",
+      starts_at: 1.day.ago, ends_at: 1.month.from_now,
+      entry_policy: "simple", day_cap: 2, status: "active"
+    )
+    prize = campaign.prizes.create!(name: "Sorteio", threshold: nil, position: 0)
+
+    m1 = merchants(:one)
+    m2 = Merchant.create!(organization: org, name: "Pool Simple M2", slug: "pool-simple-m2",
+                          address: "X", latitude: -32.5, longitude: -53.3)
+    m3 = Merchant.create!(organization: org, name: "Pool Simple M3", slug: "pool-simple-m3",
+                          address: "X", latitude: -32.5, longitude: -53.3)
+    [ m1, m2, m3 ].each { |m| CampaignMerchant.create!(organization_campaign: campaign, merchant: m) }
+
+    cust = Customer.create!(phone: "+5553988887702", name: "CapCust", lgpd_opted_in_at: Time.current)
+
+    # 3 confirmed stamps on the same day at 3 different merchants → capped to 2.
+    [ m1, m2, m3 ].each do |m|
+      v = Visit.create!(customer: cust, merchant: m, local_day: Date.current)
+      Stamp.create!(visit: v, campaign: campaign, customer: cust, merchant: m,
+                    status: "confirmed", confirmed_at: Time.current)
+    end
+
+    assert_equal 2, campaign.raffle_pool_sizes[prize.id]
+  end
+
+  test "raffle_pool_sizes (simple, uncapped) sums every confirmed stamp" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Pool Simple Uncap", slug: "pool-simple-uncap",
+      starts_at: 1.day.ago, ends_at: 1.month.from_now,
+      entry_policy: "simple", day_cap: nil, status: "active"
+    )
+    prize = campaign.prizes.create!(name: "Sorteio", threshold: nil, position: 0)
+
+    m1 = merchants(:one)
+    m2 = Merchant.create!(organization: org, name: "Pool Uncap M2", slug: "pool-uncap-m2",
+                          address: "X", latitude: -32.5, longitude: -53.3)
+    m3 = Merchant.create!(organization: org, name: "Pool Uncap M3", slug: "pool-uncap-m3",
+                          address: "X", latitude: -32.5, longitude: -53.3)
+    [ m1, m2, m3 ].each { |m| CampaignMerchant.create!(organization_campaign: campaign, merchant: m) }
+
+    cust = Customer.create!(phone: "+5553988887703", name: "UncapCust", lgpd_opted_in_at: Time.current)
+    [ m1, m2, m3 ].each do |m|
+      v = Visit.create!(customer: cust, merchant: m, local_day: Date.current)
+      Stamp.create!(visit: v, campaign: campaign, customer: cust, merchant: m,
+                    status: "confirmed", confirmed_at: Time.current)
+    end
+
+    assert_equal 3, campaign.raffle_pool_sizes[prize.id]
+  end
+
+  test "raffle_pool_sizes returns empty hash for draft campaigns" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Pool Draft", slug: "pool-draft",
+      starts_at: 1.day.from_now, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "draft"
+    )
+    campaign.prizes.create!(name: "Tier", threshold: 1, position: 0)
+
+    assert_equal({}, campaign.raffle_pool_sizes)
+  end
+
+  test "raffle_pool_sizes runs a single grouped SQL query for the pool aggregation" do
+    org = organizations(:one)
+    campaign = OrganizationCampaign.create!(
+      organization: org, name: "Pool N1", slug: "pool-n1",
+      starts_at: 1.day.ago, ends_at: 1.month.from_now,
+      entry_policy: "cumulative", status: "active"
+    )
+    5.times do |i|
+      campaign.prizes.create!(name: "Tier #{i}", threshold: i + 1, position: i)
+    end
+    CampaignMerchant.create!(organization_campaign: campaign, merchant: merchants(:one))
+    campaign.reload
+
+    # Count Stamp queries: should be O(1), not O(prizes).
+    stamp_queries = 0
+    counter = ->(_name, _start, _finish, _id, payload) do
+      sql = payload[:sql]
+      next if payload[:name].to_s.include?("SCHEMA")
+      stamp_queries += 1 if sql.include?("stamps")
+    end
+
+    ActiveSupport::Notifications.subscribed(counter, "sql.active_record") do
+      campaign.raffle_pool_sizes
+    end
+
+    assert_operator stamp_queries, :<=, 1, "expected one stamps query, got #{stamp_queries}"
+  end
+
   test "entries_for simple counts capped per day" do
     campaign = OrganizationCampaign.create!(@valid_attrs.merge(
       name: "Simple Cap", entry_policy: "simple", day_cap: 1, status: "active"

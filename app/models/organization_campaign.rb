@@ -124,6 +124,54 @@ class OrganizationCampaign < Campaign
     end
   end
 
+  # Show-page "Sorteio" panel payload. Nil on `draft` (pool size is
+  # meaningless before the campaign runs); otherwise carries the raffle
+  # state and per-Prize pool sizes. Slice 1 only exposes the "open"
+  # state (active or ended pre-draw); later slices grow this to surface
+  # winners and delivery state.
+  def raffle_panel
+    return nil unless active? || ended?
+    pool_sizes = raffle_pool_sizes
+    {
+      state: "open",
+      prizes: prizes.order(:position).map do |prize|
+        {
+          id: prize.id,
+          name: prize.name,
+          threshold: prize.threshold,
+          pool_size: pool_sizes[prize.id] || 0
+        }
+      end
+    }
+  end
+
+  # Raffle pool size per Prize, returned as `{prize_id => count}`.
+  #
+  # - `cumulative`: per-prize count of unique Customers whose confirmed
+  #   distinct-merchant tally crossed that Prize's threshold.
+  # - `simple`: total entries across all Customers (capped by `day_cap`
+  #   per day, treated as unbounded when nil); every Prize shares the
+  #   same pool since simple entries aren't tier-specific.
+  #
+  # Returns `{}` for `draft` campaigns — the pool only exists once the
+  # campaign is running.
+  def raffle_pool_sizes
+    return {} unless active? || ended?
+
+    if cumulative?
+      distinct_merchants_per_customer =
+        stamps.where(status: "confirmed").distinct.group(:customer_id).count(:merchant_id)
+      prizes.order(:position).each_with_object({}) do |prize, sizes|
+        sizes[prize.id] = distinct_merchants_per_customer.values.count { |n| n >= prize.threshold.to_i }
+      end
+    else
+      stamps_per_customer_day =
+        stamps.where(status: "confirmed").group(:customer_id, Arel.sql("DATE(created_at)")).count
+      total = stamps_per_customer_day.values.sum { |c| day_cap ? [ c, day_cap ].min : c }
+      prizes.order(:position).each_with_object({}) { |prize, sizes| sizes[prize.id] = total }
+    end
+  end
+
   def entries_for(customer)
     if cumulative?
       reached = merchants_stamped_by(customer).size

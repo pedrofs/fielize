@@ -112,6 +112,18 @@ export type CampaignMerchantRow = {
   joinedAt: string
 }
 
+export type RafflePanelPrize = {
+  id: string
+  name: string
+  threshold: number | null
+  poolSize: number
+}
+
+export type RafflePanelData = {
+  state: "open"
+  prizes: RafflePanelPrize[]
+}
+
 export type CampaignChrome = {
   id: string
   name: string
@@ -122,6 +134,7 @@ export type CampaignChrome = {
   entryPolicy: EntryPolicy
   dayCap: number | null
   prizes: Prize[]
+  rafflePanel: RafflePanelData | null
 }
 
 export type EnrollmentProgress =

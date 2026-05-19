@@ -149,7 +149,8 @@ class Organizations::CampaignsController < Organizations::BaseController
       day_cap: campaign.day_cap,
       prizes: campaign.prizes.order(:position).map do |p|
         { id: p.id, name: p.name, threshold: p.threshold, position: p.position }
-      end
+      end,
+      raffle_panel: campaign.raffle_panel
     }
   end
 
