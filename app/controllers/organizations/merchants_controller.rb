@@ -43,7 +43,7 @@ class Organizations::MerchantsController < Organizations::BaseController
     merchant = current_organization.merchants.build(merchant_params)
 
     if merchant.save
-      redirect_to organizations_merchants_path, notice: "Lojista criado."
+      redirect_to organizations_merchant_path(merchant), notice: "Lojista criado."
     else
       redirect_to new_organizations_merchant_path, inertia: { errors: merchant.errors }
     end
@@ -58,7 +58,7 @@ class Organizations::MerchantsController < Organizations::BaseController
 
   def update
     if @merchant.update(merchant_params)
-      redirect_to organizations_merchants_path, notice: "Lojista atualizado."
+      redirect_to organizations_merchant_path(@merchant), notice: "Lojista atualizado."
     else
       redirect_to edit_organizations_merchant_path(@merchant), inertia: { errors: @merchant.errors }
     end
