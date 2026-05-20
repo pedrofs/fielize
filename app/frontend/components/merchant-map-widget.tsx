@@ -30,11 +30,12 @@ function CenterOnPin({
 type Props = {
   latitude: number | null
   longitude: number | null
-  onChange: (lat: number, lng: number) => void
+  onChange?: (lat: number, lng: number) => void
 }
 
 export function MerchantMapWidget({ latitude, longitude, onChange }: Props) {
   const markerRef = useRef<LeafletMarker | null>(null)
+  const editable = !!onChange
 
   const center: [number, number] =
     latitude != null && longitude != null
@@ -61,14 +62,18 @@ export function MerchantMapWidget({ latitude, longitude, onChange }: Props) {
             ref={markerRef}
             position={[latitude, longitude]}
             icon={defaultIcon}
-            draggable
-            eventHandlers={{
-              dragend: (event: LeafletEvent) => {
-                const marker = event.target as LeafletMarker
-                const { lat, lng } = marker.getLatLng()
-                onChange(lat, lng)
-              },
-            }}
+            draggable={editable}
+            eventHandlers={
+              editable
+                ? {
+                    dragend: (event: LeafletEvent) => {
+                      const marker = event.target as LeafletMarker
+                      const { lat, lng } = marker.getLatLng()
+                      onChange!(lat, lng)
+                    },
+                  }
+                : undefined
+            }
           />
         )}
         <CenterOnPin latitude={latitude} longitude={longitude} />

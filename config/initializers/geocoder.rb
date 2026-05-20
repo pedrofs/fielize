@@ -8,8 +8,8 @@
 # See ADR-0004 (manual pin adjustment after geocoding) for why we still
 # require admins to confirm pins regardless of backend accuracy.
 Geocoder.configure(
-  lookup: ENV.fetch("GEOCODER_LOOKUP", "nominatim").to_sym,
-  api_key: ENV["GEOCODER_API_KEY"],
+  lookup: :google,
+  api_key: Rails.application.credentials.google_api_key,
   use_https: true,
   timeout: 5,
   units: :km
