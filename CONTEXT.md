@@ -21,7 +21,7 @@ A person identified by a phone number (E.164, WhatsApp-capable) who participates
 _Avoid_: user, member, account, shopper
 
 **Campaign**:
-A loyalty program defined by an **Organization**. Two kinds: a per-merchant **LoyaltyCampaign** (punchcard) and an **OrganizationCampaign** that spans multiple **Merchants**. **OrganizationCampaign** lifecycle: `draft → active → ended → drawn`. The `drawn` transition runs all the campaign's **Raffles** in one shot and is triggered manually by the org user (no auto-draw on end — the org typically wants ceremonial control over *when* winners are announced).
+A loyalty program defined by an **Organization**. Two kinds: a per-merchant **LoyaltyCampaign** (punchcard, surfaced to merchant-side **Users** under the UI label "Cartão Fidelidade") and an **OrganizationCampaign** that spans multiple **Merchants**. **OrganizationCampaign** lifecycle: `draft → active → ended → drawn`. The `drawn` transition runs all the campaign's **Raffles** in one shot and is triggered manually by the org user (no auto-draw on end — the org typically wants ceremonial control over *when* winners are announced).
 _Avoid_: program, promotion
 
 **Visit**:
@@ -33,7 +33,7 @@ A unit of progress earned by a **Customer** in a **Campaign** during a **Visit**
 _Avoid_: point, punch, credit
 
 **Prize**:
-A reward configured on a **Campaign** that a **Customer** can claim once they reach the configured threshold of confirmed **Stamps**.
+A reward configured on a **Campaign** that a **Customer** can claim once they reach the configured threshold of confirmed **Stamps**. In a **LoyaltyCampaign**, **Prizes** form a *spend-down menu* priced in **Stamps**: the **Customer**'s balance is `confirmed Stamps earned − Σ thresholds of Prizes already redeemed`, reaching the **cheapest** **Prize**'s threshold flips the **Card** to **Redemption-ready**, and a **Customer** may redeem repeatedly as they re-earn balance (it is not a one-time ladder). In an **OrganizationCampaign**, a **Prize** is instead won via its **Raffle**.
 _Avoid_: reward, gift, voucher
 
 **Redemption**:

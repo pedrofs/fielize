@@ -1,6 +1,10 @@
 # frozen_string_literal: true
 
 class Merchants::LoyaltyProgramsController < Merchants::BaseController
+  # How close (in Stamps) a Customer must be to the cheapest Prize to surface in
+  # the "Quase lá" list. Fixed for v1 (PRD #51, Slice 3).
+  NEAR_WITHIN = 2
+
   before_action :set_loyalty
 
   with_breadcrumb label: "Cartão Fidelidade",
@@ -13,9 +17,10 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
       loyalty_program: serialize(@loyalty),
       prizes: @loyalty.prizes.ordered.map { |p| serialize_prize(p) }
     }
-    # Lifecycle branch: draft renders the live preview Card. The active branch
-    # (standings + metrics) is added in later slices.
+    # Lifecycle branch: draft renders the live preview Card; active renders the
+    # two current-state standings lists (later slices add metrics on top).
     props[:preview_card] = serialize_card(@loyalty.preview_card) if @loyalty.draft?
+    props[:standings] = serialize_standings(@loyalty) if @loyalty.active?
 
     render inertia: props
   end
@@ -73,6 +78,25 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
         image_url: organization.image_url
       },
       progress: card.progress
+    }
+  end
+
+  # The active dashboard's two actionable lists plus the cheapest threshold the
+  # frontend needs to render "balance/threshold". Read-only by design (ADR-0006).
+  def serialize_standings(loyalty)
+    {
+      cheapest_threshold: loyalty.prizes.minimum(:threshold),
+      redeemable: loyalty.redeemable.map { |row| serialize_standing(row) },
+      near_reward: loyalty.near_reward(within: NEAR_WITHIN).map { |row| serialize_standing(row) }
+    }
+  end
+
+  def serialize_standing(row)
+    {
+      customer_id: row.customer.id,
+      customer_name: row.customer.name.presence || row.customer.phone_masked,
+      balance: row.balance,
+      missing: row.missing
     }
   end
 

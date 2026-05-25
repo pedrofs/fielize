@@ -203,6 +203,21 @@ export type LoyaltyProgram = {
   effectiveFromAt: string | null
 }
 
+// One Customer in an active program's actionable lists. `missing` is null in
+// the "Pode resgatar agora" bucket and the Stamps-short count in "Quase lá".
+export type LoyaltyStandingRow = {
+  customerId: string
+  customerName: string
+  balance: number
+  missing: number | null
+}
+
+export type LoyaltyStandings = {
+  cheapestThreshold: number | null
+  redeemable: LoyaltyStandingRow[]
+  nearReward: LoyaltyStandingRow[]
+}
+
 export type RedemptionPreviewPrize = {
   id: string
   name: string

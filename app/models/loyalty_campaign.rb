@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 class LoyaltyCampaign < Campaign
+  include Standings
+
   validates :merchant_id, presence: true
   validate  :entry_policy_must_be_blank
   validate  :must_have_at_least_one_prize, on: :activation

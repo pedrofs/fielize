@@ -19,7 +19,12 @@ import {
   OrgLabel,
   type CardPresentation,
 } from "@/components/wallet-card"
-import type { LoyaltyProgram, LoyaltyPrize } from "@/types"
+import type {
+  LoyaltyProgram,
+  LoyaltyPrize,
+  LoyaltyStandings,
+  LoyaltyStandingRow,
+} from "@/types"
 
 type Props = {
   loyaltyProgram: LoyaltyProgram
@@ -27,6 +32,8 @@ type Props = {
   // Draft only: the Card a brand-new Customer sees, rendered with the same
   // CardBody as the customer Wallet. Re-rendered as Prizes are added/removed.
   previewCard?: CardPresentation
+  // Active only: the two read-only current-state Customer lists.
+  standings?: LoyaltyStandings
 }
 
 const STATUS_LABELS: Record<LoyaltyProgram["status"], string> = {
@@ -39,6 +46,7 @@ export default function LoyaltyProgramShow({
   loyaltyProgram,
   prizes,
   previewCard,
+  standings,
 }: Props) {
   const [disableOpen, setDisableOpen] = useState(false)
   const [resetMode, setResetMode] = useState<"keep" | "reset">("keep")
@@ -133,6 +141,8 @@ export default function LoyaltyProgramShow({
           </CardContent>
         </Card>
       )}
+
+      {isActive && standings && <Standings standings={standings} />}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -321,6 +331,100 @@ function WorkedExample({ prizes }: { prizes: LoyaltyPrize[] }) {
       </strong>
       , seu cliente resgata <strong>{cheapest.name}</strong>.
     </p>
+  )
+}
+
+// The active program's two read-only actionable lists (ADR-0006: no nudge
+// action). "Pode resgatar agora" leads; "Quase lá" follows. When both are empty
+// (no Stamps in the era yet) a single calm empty state stands in for both.
+function Standings({ standings }: { standings: LoyaltyStandings }) {
+  const { redeemable, nearReward, cheapestThreshold } = standings
+
+  if (redeemable.length === 0 && nearReward.length === 0) {
+    return (
+      <Card data-testid="loyalty-standings-empty">
+        <CardHeader>
+          <CardTitle>Seus clientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Ainda sem carimbos — seus clientes começam a participar nas próximas
+            visitas.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card data-testid="loyalty-standings">
+      <CardHeader>
+        <CardTitle>Pode resgatar agora</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <StandingsList
+          rows={redeemable}
+          cheapestThreshold={cheapestThreshold}
+          variant="redeemable"
+          emptyHint="Ninguém com saldo para resgatar agora."
+        />
+        <div className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Quase lá</h3>
+          <StandingsList
+            rows={nearReward}
+            cheapestThreshold={cheapestThreshold}
+            variant="near"
+            emptyHint="Ninguém perto de um prêmio ainda."
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StandingsList({
+  rows,
+  cheapestThreshold,
+  variant,
+  emptyHint,
+}: {
+  rows: LoyaltyStandingRow[]
+  cheapestThreshold: number | null
+  variant: "redeemable" | "near"
+  emptyHint: string
+}) {
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">{emptyHint}</p>
+  }
+
+  return (
+    <ul
+      className="divide-y"
+      data-testid={`loyalty-standings-${variant}`}
+    >
+      {rows.map((row) => (
+        <li
+          key={row.customerId}
+          className="flex items-center justify-between gap-2 py-2"
+        >
+          <span className="font-medium">{row.customerName}</span>
+          {variant === "redeemable" ? (
+            <span className="text-sm font-medium text-primary">
+              {row.balance} carimbo{row.balance === 1 ? "" : "s"} · pode resgatar
+            </span>
+          ) : (
+            <span className="text-sm text-muted-foreground">
+              {cheapestThreshold !== null && (
+                <span className="tabular-nums">
+                  {row.balance}/{cheapestThreshold}
+                </span>
+              )}{" "}
+              · faltam {row.missing}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
   )
 }
 
