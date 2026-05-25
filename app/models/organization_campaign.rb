@@ -151,6 +151,22 @@ class OrganizationCampaign < Campaign
     end
   end
 
+  # Builds the customer's Card for the Wallet. State follows the lifecycle:
+  # `active` → collecting; `ended` (not yet drawn) → awaiting_draw; once `drawn`
+  # the Raffle outcome decides — a Raffle this customer won with no Redemption
+  # is `won`, a won Raffle that was redeemed is `redeemed`, and no winning
+  # Raffle is `lost`. Progress is policy-specific: cumulative carries the
+  # distinct-merchant tally toward the next Prize threshold; simple carries the
+  # accumulated entry count (respecting `day_cap`) plus the draw date.
+  def card_for(customer:)
+    Card.new(
+      campaign: self,
+      customer: customer,
+      state: card_state(customer),
+      progress: card_progress(customer)
+    )
+  end
+
   # Show-page "Sorteio" panel payload. Nil on `draft` (pool size is
   # meaningless before the campaign runs); on active/ended it carries
   # pool sizes; once drawn it carries per-Prize winner + drawn_at, or
@@ -200,6 +216,50 @@ class OrganizationCampaign < Campaign
   end
 
   private
+
+  def card_state(customer)
+    return "awaiting_draw" if ended?
+    return drawn_card_state(customer) if drawn?
+
+    "collecting"
+  end
+
+  # On a drawn campaign, the customer's outcome is whether they hold a winning
+  # Raffle and, if so, whether it has been redeemed. A Customer can win at most
+  # one Raffle per Campaign (the draw excludes prior winners), so `find_by` is
+  # unambiguous.
+  def drawn_card_state(customer)
+    won_raffle = raffles.find_by(status: "drawn", winner_customer_id: customer.id)
+    return "lost" unless won_raffle
+
+    won_raffle.redemption.present? ? "redeemed" : "won"
+  end
+
+  def card_progress(customer)
+    cumulative? ? cumulative_card_progress(customer) : simple_card_progress(customer)
+  end
+
+  def cumulative_card_progress(customer)
+    merchants_stamped = merchants_stamped_by(customer).size
+    tiers = prizes.reorder(:threshold).map do |prize|
+      { name: prize.name, threshold: prize.threshold, reached: merchants_stamped >= prize.threshold }
+    end
+
+    {
+      kind: "cumulative",
+      merchants_stamped: merchants_stamped,
+      next_threshold: tiers.find { |tier| !tier[:reached] }&.fetch(:threshold),
+      tiers: tiers
+    }
+  end
+
+  def simple_card_progress(customer)
+    {
+      kind: "simple",
+      entries: entries_for(customer),
+      draw_at: ends_at
+    }
+  end
 
   def open_raffle_panel
     pool_sizes = raffle_pool_sizes
