@@ -1,10 +1,11 @@
 import { Link, router, usePage } from "@inertiajs/react"
-import { PencilIcon, PartyPopperIcon } from "lucide-react"
+import { PencilIcon, PartyPopperIcon, CircleCheckIcon, CircleIcon, CircleAlertIcon } from "lucide-react"
 import { useEffect, useState, type ReactNode } from "react"
 import { motion, useReducedMotion } from "motion/react"
 
 import { AppLayout } from "@/layouts/app-layout"
 import { Button } from "@/components/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Confetti } from "@/components/celebrate"
 import { cn } from "@/lib/utils"
 import type { CampaignChrome, RaffleSummary } from "@/types"
@@ -26,6 +27,34 @@ export function CampaignShowLayout({
 }) {
   const { props } = usePage<CampaignShowProps>()
   const { campaign, merchantsCount, enrollmentsCount } = props
+
+  // Errors from a failed activation/termination/raffle land here as
+  // props.errors (e.g. prizes/merchants/base). Surfaced so "Ativar" is
+  // never a silent no-op.
+  const errorMessages = Object.values(props.errors ?? {})
+    .flatMap((value) => (Array.isArray(value) ? value : [value]))
+    .filter(Boolean) as string[]
+
+  // What's still missing before this draft can be activated — mirrors the
+  // server-side guards in OrganizationCampaign::Activatable so the user
+  // sees the requirements (notably "add a merchant") before clicking.
+  const prizes = campaign.prizes
+  const checklist =
+    campaign.status === "draft"
+      ? [
+          { label: "Pelo menos 1 prêmio", done: prizes.length > 0 },
+          ...(campaign.entryPolicy === "cumulative"
+            ? [
+                {
+                  label: "Todos os prêmios com marco de stamps",
+                  done: prizes.length > 0 && prizes.every((p) => (p.threshold ?? 0) > 0),
+                },
+              ]
+            : []),
+          { label: "Pelo menos 1 lojista participante", done: merchantsCount > 0 },
+        ]
+      : []
+  const readyToActivate = checklist.every((item) => item.done)
 
   const onActivate = () => {
     router.post(`/organizations/campaigns/${campaign.id}/activation`, {}, { preserveScroll: true })
@@ -62,7 +91,9 @@ export function CampaignShowLayout({
                   Editar
                 </Link>
               </Button>
-              <Button onClick={onActivate}>Ativar</Button>
+              <Button onClick={onActivate} disabled={!readyToActivate}>
+                Ativar
+              </Button>
               <Button variant="destructive" onClick={onDelete}>
                 Excluir
               </Button>
@@ -94,6 +125,52 @@ export function CampaignShowLayout({
           )}
         </div>
       </div>
+
+      {errorMessages.length > 0 && (
+        <Alert variant="destructive" data-testid="campaign-errors">
+          <CircleAlertIcon />
+          <AlertTitle>Não foi possível concluir a ação</AlertTitle>
+          <AlertDescription>
+            <ul className="list-disc pl-4">
+              {errorMessages.map((message, i) => (
+                <li key={i}>{message}</li>
+              ))}
+            </ul>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {campaign.status === "draft" && (
+        <div
+          className="rounded-md border p-4"
+          data-testid="activation-checklist"
+        >
+          <p className="mb-2 text-sm font-medium">
+            {readyToActivate
+              ? "Tudo pronto para ativar."
+              : "Para ativar esta campanha, falta:"}
+          </p>
+          <ul className="flex flex-col gap-1.5 text-sm">
+            {checklist.map((item) => (
+              <li
+                key={item.label}
+                className={cn(
+                  "flex items-center gap-2",
+                  item.done ? "text-muted-foreground" : "text-foreground",
+                )}
+                data-testid={`checklist-item${item.done ? "-done" : ""}`}
+              >
+                {item.done ? (
+                  <CircleCheckIcon className="size-4 text-emerald-600" />
+                ) : (
+                  <CircleIcon className="size-4 text-muted-foreground" />
+                )}
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <RafflePanel campaign={campaign} />
 

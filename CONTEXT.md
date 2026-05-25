@@ -58,8 +58,23 @@ _Avoid_: ticket, ballot, chance
 A **Customer**'s attachment to a **Campaign**, capturing phone + LGPD opt-in. Created either *explicitly* (tapping "Enroll" on the **Organization**'s landing page) or *implicitly* (the first **Visit** at a covered **Merchant** auto-enrolls into every active **Campaign** that covers that **Merchant**). Both paths converge on the same **Customer** record, keyed by phone.
 _Avoid_: subscription, signup, opt-in
 
+## Customer App (Wallet)
+
+**Wallet**:
+The **Customer**'s cross-**Organization** mobile home (PWA `start_url: /me`, Fielize-branded — neutral chrome, not org-themed), reached via the **Cartões** tab of a two-tab bottom toolbar (**Cartões** + **Perfil**) that is present on *every* customer-facing page (it lives in the shared customer layout), including org-branded drill-downs. Lists one **Card** per **Enrollment** across every **Organization** the **Customer** joined, organized into state-first sections: **Para resgatar** (redemption-ready, floated to the top across all orgs), **Ativas** (still collecting), and a collapsed **Encerradas** (lost / fully redeemed / disabled). Org-branded screens (`/o/:org_slug/…`) remain reachable as drill-downs.
+_Avoid_: dashboard, feed, home
+
+**Card**:
+The customer-facing representation of one **Enrollment** plus its live progress and state, shown in the **Wallet** and openable to a detail page (**Prizes**, terms, participating **Merchants**, outcome). A **LoyaltyCampaign** renders a punchcard (confirmed-**Stamp** balance vs **Prize** threshold); an **OrganizationCampaign** renders a passport (`cumulative`: distinct **Merchants** stamped vs threshold) or a raffle-ticket tally (`simple`: number of entries). "Stamp card" is the UI metaphor, not a new persisted entity — a **Card** is a projection over an **Enrollment**.
+_Avoid_: tile, widget
+
+**Redemption-ready**:
+The **Card** state floated into **Para resgatar**. For a **LoyaltyCampaign**: the confirmed-**Stamp** balance has reached a **Prize** threshold (redeem at the **Merchant**). For an **OrganizationCampaign**: the **Customer** won a **Raffle** and has not yet redeemed (redeem at the **Organization** HQ). A win is never hidden, even after the **Campaign** is drawn.
+_Avoid_: claimable, unlocked
+
 ## Relationships
 
+- A **Wallet** shows one **Card** per **Enrollment**; **Cards** span multiple **Organizations**.
 - An **Organization** has many **Merchants** and runs many **Campaigns**.
 - A **Campaign** is either scoped to one **Merchant** (**LoyaltyCampaign**) or spans many (**OrganizationCampaign**).
 - A **Visit** belongs to exactly one **Customer** and one **Merchant**.

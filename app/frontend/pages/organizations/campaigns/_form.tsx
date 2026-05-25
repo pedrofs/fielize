@@ -1,10 +1,12 @@
-import { useForm } from "@inertiajs/react"
+import { useForm, Link } from "@inertiajs/react"
 import type { FormEvent } from "react"
 import { TrashIcon, PlusIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { TrixEditor } from "@/components/trix-editor"
 import type { Campaign, EntryPolicy, PrizeInput } from "@/types"
 
@@ -54,6 +56,16 @@ export function CampaignForm({ mode, campaign }: Props) {
   })
 
   const isActive = campaign.status === "active"
+
+  // Inertia/Rails return validation errors under flat attribute keys
+  // (name, endsAt, "prizes.name", base) — after caseshift, NOT prefixed
+  // with the form's "campaign" namespace. Read by attribute key and
+  // collapse multiple messages into one line.
+  const fieldError = (key: string): string | undefined => {
+    const errors = form.errors as Record<string, string | string[] | undefined>
+    const value = errors[key]
+    return Array.isArray(value) ? value.join(" ") : value
+  }
 
   const update = <K extends keyof FormShape["campaign"]>(
     key: K,
@@ -124,11 +136,11 @@ export function CampaignForm({ mode, campaign }: Props) {
           id="campaign_name"
           value={form.data.campaign.name}
           onChange={(e) => update("name", e.target.value)}
-          aria-invalid={!!form.errors["campaign.name"]}
+          aria-invalid={!!fieldError("name")}
           required
         />
-        {form.errors["campaign.name"] && (
-          <p className="text-sm text-destructive">{form.errors["campaign.name"]}</p>
+        {fieldError("name") && (
+          <p className="text-sm text-destructive">{fieldError("name")}</p>
         )}
       </div>
 
@@ -141,9 +153,10 @@ export function CampaignForm({ mode, campaign }: Props) {
           value={form.data.campaign.slug}
           onChange={(e) => update("slug", e.target.value)}
           placeholder="(opcional — gerado a partir do nome)"
+          aria-invalid={!!fieldError("slug")}
         />
-        {form.errors["campaign.slug"] && (
-          <p className="text-sm text-destructive">{form.errors["campaign.slug"]}</p>
+        {fieldError("slug") && (
+          <p className="text-sm text-destructive">{fieldError("slug")}</p>
         )}
       </div>
 
@@ -158,8 +171,12 @@ export function CampaignForm({ mode, campaign }: Props) {
             value={form.data.campaign.startsAt}
             onChange={(e) => update("startsAt", e.target.value)}
             disabled={isActive}
+            aria-invalid={!!fieldError("startsAt")}
             required
           />
+          {fieldError("startsAt") && (
+            <p className="text-sm text-destructive">{fieldError("startsAt")}</p>
+          )}
         </div>
         <div className="flex flex-col gap-2">
           <label htmlFor="campaign_ends_at" className="text-sm font-medium">
@@ -170,81 +187,100 @@ export function CampaignForm({ mode, campaign }: Props) {
             type="datetime-local"
             value={form.data.campaign.endsAt}
             onChange={(e) => update("endsAt", e.target.value)}
+            aria-invalid={!!fieldError("endsAt")}
             required
           />
+          {fieldError("endsAt") && (
+            <p className="text-sm text-destructive">{fieldError("endsAt")}</p>
+          )}
         </div>
       </div>
 
-      <fieldset className="flex flex-col gap-2" disabled={isActive}>
+      <fieldset className="flex flex-col gap-3" disabled={isActive}>
         <legend className="text-sm font-medium mb-1">Tipo de campanha</legend>
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="radio"
-            name="entry_policy"
-            checked={form.data.campaign.entryPolicy === "cumulative"}
-            onChange={() => onPolicyChange("cumulative")}
-            className="mt-1"
-          />
-          <span>
-            <strong>Acumulativa</strong> — cada prêmio tem seu próprio marco
-            de stamps (cliente entra no sorteio do prêmio ao atingir o marco).
-          </span>
-        </label>
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="radio"
-            name="entry_policy"
-            checked={form.data.campaign.entryPolicy === "simple"}
-            onChange={() => onPolicyChange("simple")}
-            className="mt-1"
-          />
-          <span>
-            <strong>Simples</strong> — cada visita registrada vale 1 entrada.
-          </span>
-        </label>
+        <RadioGroup
+          value={form.data.campaign.entryPolicy}
+          onValueChange={(value) => onPolicyChange(value as EntryPolicy)}
+          disabled={isActive}
+        >
+          <label
+            htmlFor="entry_policy_cumulative"
+            className="flex items-start gap-2 text-sm"
+          >
+            <RadioGroupItem
+              value="cumulative"
+              id="entry_policy_cumulative"
+              className="mt-0.5"
+            />
+            <span>
+              <strong>Acumulativa</strong> — cada prêmio tem seu próprio marco
+              de stamps (cliente entra no sorteio do prêmio ao atingir o marco).
+            </span>
+          </label>
+          <label
+            htmlFor="entry_policy_simple"
+            className="flex items-start gap-2 text-sm"
+          >
+            <RadioGroupItem
+              value="simple"
+              id="entry_policy_simple"
+              className="mt-0.5"
+            />
+            <span>
+              <strong>Simples</strong> — cada visita registrada vale 1 entrada.
+            </span>
+          </label>
+        </RadioGroup>
       </fieldset>
 
-      <label className="flex items-center gap-2 text-sm">
-        <input
-          type="checkbox"
+      <label htmlFor="requires_validation" className="flex items-center gap-2 text-sm">
+        <Checkbox
+          id="requires_validation"
           checked={form.data.campaign.requiresValidation}
-          onChange={(e) => update("requiresValidation", e.target.checked)}
+          onCheckedChange={(checked) =>
+            update("requiresValidation", checked === true)
+          }
           disabled={isActive}
         />
         Exigir validação do lojista a cada check-in
       </label>
 
       {form.data.campaign.entryPolicy === "simple" && (
-        <fieldset className="flex flex-col gap-2" disabled={isActive}>
+        <fieldset className="flex flex-col gap-3" disabled={isActive}>
           <legend className="text-sm font-medium mb-1">
             Limite de entradas por dia (por cliente)
           </legend>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="day_cap_mode"
-              checked={form.data.campaign.dayCap === null}
-              onChange={() => update("dayCap", null)}
-            />
-            Sem limite
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="day_cap_mode"
-              checked={form.data.campaign.dayCap !== null}
-              onChange={() => update("dayCap", 1)}
-            />
-            <Input
-              type="number"
-              min={1}
-              value={form.data.campaign.dayCap ?? ""}
-              onChange={(e) => update("dayCap", Number(e.target.value) || 1)}
-              disabled={form.data.campaign.dayCap === null}
-              className="max-w-[100px]"
-            />
-            entrada(s) por dia
-          </label>
+          <RadioGroup
+            value={form.data.campaign.dayCap === null ? "none" : "limited"}
+            onValueChange={(value) =>
+              update("dayCap", value === "none" ? null : 1)
+            }
+            disabled={isActive}
+          >
+            <label htmlFor="day_cap_none" className="flex items-center gap-2 text-sm">
+              <RadioGroupItem value="none" id="day_cap_none" />
+              Sem limite
+            </label>
+            <label
+              htmlFor="day_cap_limited"
+              className="flex items-center gap-2 text-sm"
+            >
+              <RadioGroupItem value="limited" id="day_cap_limited" />
+              <Input
+                type="number"
+                min={1}
+                value={form.data.campaign.dayCap ?? ""}
+                onChange={(e) => update("dayCap", Number(e.target.value) || 1)}
+                disabled={form.data.campaign.dayCap === null}
+                className="max-w-[100px]"
+                aria-label="Entradas por dia"
+              />
+              entrada(s) por dia
+            </label>
+          </RadioGroup>
+          {fieldError("dayCap") && (
+            <p className="text-sm text-destructive">{fieldError("dayCap")}</p>
+          )}
         </fieldset>
       )}
 
@@ -255,6 +291,15 @@ export function CampaignForm({ mode, campaign }: Props) {
             (mínimo 1 para ativar)
           </span>
         </h2>
+        {(fieldError("prizes") ||
+          fieldError("prizes.name") ||
+          fieldError("prizes.threshold")) && (
+          <p className="text-sm text-destructive">
+            {fieldError("prizes") ||
+              fieldError("prizes.name") ||
+              fieldError("prizes.threshold")}
+          </p>
+        )}
         <div className="rounded-md border divide-y">
           {visiblePrizes.length === 0 && (
             <p className="p-4 text-sm text-muted-foreground">
@@ -307,10 +352,8 @@ export function CampaignForm({ mode, campaign }: Props) {
           onChange={(html) => update("description", html)}
           placeholder="Conte sobre essa campanha…"
         />
-        {form.errors["campaign.description"] && (
-          <p className="text-sm text-destructive">
-            {form.errors["campaign.description"]}
-          </p>
+        {fieldError("description") && (
+          <p className="text-sm text-destructive">{fieldError("description")}</p>
         )}
       </section>
 
@@ -330,10 +373,8 @@ export function CampaignForm({ mode, campaign }: Props) {
           accept="image/*"
           onChange={(e) => update("heroImage", e.target.files?.[0] ?? null)}
         />
-        {form.errors["campaign.hero_image"] && (
-          <p className="text-sm text-destructive">
-            {form.errors["campaign.hero_image"]}
-          </p>
+        {fieldError("heroImage") && (
+          <p className="text-sm text-destructive">{fieldError("heroImage")}</p>
         )}
       </section>
 
@@ -347,15 +388,13 @@ export function CampaignForm({ mode, campaign }: Props) {
           onChange={(html) => update("terms", html)}
           placeholder="Termos específicos desta campanha…"
         />
-        {form.errors["campaign.terms"] && (
-          <p className="text-sm text-destructive">
-            {form.errors["campaign.terms"]}
-          </p>
+        {fieldError("terms") && (
+          <p className="text-sm text-destructive">{fieldError("terms")}</p>
         )}
       </section>
 
-      {form.errors["campaign.base"] && (
-        <p className="text-sm text-destructive">{form.errors["campaign.base"]}</p>
+      {fieldError("base") && (
+        <p className="text-sm text-destructive">{fieldError("base")}</p>
       )}
 
       <div className="flex gap-2">
@@ -363,7 +402,7 @@ export function CampaignForm({ mode, campaign }: Props) {
           {mode === "new" ? "Salvar como rascunho" : "Salvar alterações"}
         </Button>
         <Button type="button" variant="ghost" asChild>
-          <a href="/organizations/campaigns">Cancelar</a>
+          <Link href="/organizations/campaigns">Cancelar</Link>
         </Button>
       </div>
     </form>

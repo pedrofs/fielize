@@ -2,6 +2,7 @@ import { Head, Link, usePage } from "@inertiajs/react"
 import { Fragment, type ReactNode } from "react"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { FlashToaster } from "@/components/flash-toaster"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -25,6 +26,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <Head title={title ?? undefined} />
+      <FlashToaster />
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
