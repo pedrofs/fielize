@@ -47,6 +47,7 @@ class Customer::OrganizationsController < Customer::BaseController
     {
       id: merchant.id,
       name: merchant.name,
+      slug: merchant.slug,
       address: merchant.address,
       latitude: merchant.latitude&.to_f,
       longitude: merchant.longitude&.to_f,

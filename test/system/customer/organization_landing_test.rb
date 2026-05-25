@@ -14,6 +14,59 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
     assert_text merchant.address
   end
 
+  test "merchant cards navigate to the merchant landing page" do
+    organization = organizations(:one)
+    merchant = merchants(:one)
+
+    visit "/o/#{organization.slug}"
+
+    find("[data-testid='merchant-card']", text: merchant.name).click
+
+    assert_current_path "/m/#{merchant.slug}"
+  end
+
+  test "merchant cards show a monogram, name, address and a campaign-count chip" do
+    organization = organizations(:one)
+    merchant = merchants(:one)
+
+    visit "/o/#{organization.slug}"
+
+    within find("[data-testid='merchant-card']", text: merchant.name) do
+      assert_selector "[data-testid='merchant-monogram']"
+      assert_text merchant.name
+      assert_text merchant.address
+      assert_selector "[data-testid='merchant-campaign-count']", text: "2 campanhas aqui"
+    end
+  end
+
+  test "merchant card renders a graceful zero-state chip when the merchant has no active campaigns" do
+    organization = organizations(:one)
+    merchant = merchants(:one)
+    organization.campaigns.update_all(status: "ended")
+
+    visit "/o/#{organization.slug}"
+
+    within find("[data-testid='merchant-card']", text: merchant.name) do
+      assert_selector "[data-testid='merchant-campaign-count']", text: "Sem campanhas aqui"
+    end
+  end
+
+  test "merchant bottom sheet links to the merchant landing page" do
+    organization = organizations(:one)
+    merchant = merchants(:one)
+
+    visit "/o/#{organization.slug}"
+
+    marker = find(".leaflet-marker-icon", match: :first)
+    marker.click
+
+    within "[data-testid='merchant-sheet']" do
+      click_on "Ver loja"
+    end
+
+    assert_current_path "/m/#{merchant.slug}"
+  end
+
   test "renders the still-being-set-up placeholder when org has no merchants and no campaigns" do
     organization = organizations(:empty)
 

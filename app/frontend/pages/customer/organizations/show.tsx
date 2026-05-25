@@ -4,6 +4,7 @@ import { Link, usePage } from "@inertiajs/react"
 import { MapContainer, Marker, TileLayer } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   Sheet,
   SheetContent,
@@ -35,6 +36,7 @@ type CampaignLink = {
 type Merchant = {
   id: string
   name: string
+  slug: string
   address: string | null
   latitude: number | null
   longitude: number | null
@@ -94,6 +96,65 @@ function OrgHeader({ organization }: { organization: Organization }) {
         )}
       </div>
     </header>
+  )
+}
+
+function monogram(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return "?"
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function campaignCountLabel(count: number): string {
+  if (count === 0) return "Sem campanhas aqui"
+  if (count === 1) return "1 campanha aqui"
+  return `${count} campanhas aqui`
+}
+
+function MerchantCard({
+  merchant,
+  primaryColor,
+}: {
+  merchant: Merchant
+  primaryColor: string | null
+}) {
+  return (
+    <Link
+      href={`/m/${merchant.slug}`}
+      className="flex items-center gap-3 p-4 transition-colors hover:bg-accent/30"
+      data-testid="merchant-card"
+    >
+      <Avatar size="lg" data-testid="merchant-monogram">
+        <AvatarFallback
+          className="font-semibold"
+          style={
+            primaryColor
+              ? {
+                  color: primaryColor,
+                  backgroundColor: `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
+                }
+              : undefined
+          }
+        >
+          {monogram(merchant.name)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="font-medium">{merchant.name}</span>
+        {merchant.address && (
+          <span className="truncate text-sm text-muted-foreground">
+            {merchant.address}
+          </span>
+        )}
+        <span
+          className="mt-1 inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+          data-testid="merchant-campaign-count"
+        >
+          {campaignCountLabel(merchant.campaigns.length)}
+        </span>
+      </div>
+    </Link>
   )
 }
 
@@ -303,13 +364,11 @@ export default function CustomerOrganizationShow({
         ) : (
           <ul className="flex flex-col divide-y rounded-lg border bg-card">
             {merchants.map((merchant) => (
-              <li key={merchant.id} className="flex flex-col gap-1 p-4">
-                <span className="font-medium">{merchant.name}</span>
-                {merchant.address && (
-                  <span className="text-sm text-muted-foreground">
-                    {merchant.address}
-                  </span>
-                )}
+              <li key={merchant.id}>
+                <MerchantCard
+                  merchant={merchant}
+                  primaryColor={organization.primaryColor}
+                />
               </li>
             ))}
           </ul>
@@ -334,6 +393,13 @@ export default function CustomerOrganizationShow({
                 )}
               </SheetHeader>
               <div className="flex flex-col gap-2 p-4 pt-0">
+                <Link
+                  href={`/m/${selected.slug}`}
+                  className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  data-testid="sheet-merchant-link"
+                >
+                  Ver loja →
+                </Link>
                 <h3 className="text-sm font-semibold">
                   Campanhas ativas neste lojista
                 </h3>
