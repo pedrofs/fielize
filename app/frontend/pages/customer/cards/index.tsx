@@ -7,12 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { WalletCard, type WalletCardData } from "@/components/wallet-card"
 import { CustomerLayout } from "@/layouts/customer-layout"
-
-const PHONE_DIGITS_RE = /^\d{10,13}$/
-
-function isPlausibleBrazilianPhone(value: string) {
-  return PHONE_DIGITS_RE.test(value.replace(/\D/g, ""))
-}
+import { formatBrazilianPhone, isPlausibleBrazilianPhone } from "@/lib/phone"
 
 type Card = WalletCardData
 
@@ -130,7 +125,7 @@ function RestoreForm() {
           placeholder="(53) 99999-1111"
           value={data.walletRecovery.phone}
           onChange={(e) =>
-            setData("walletRecovery", { phone: e.target.value })
+            setData("walletRecovery", { phone: formatBrazilianPhone(e.target.value) })
           }
           required
           data-testid="wallet-restore-phone-input"

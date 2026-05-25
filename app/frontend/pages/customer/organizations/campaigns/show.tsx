@@ -5,6 +5,7 @@ import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { formatBrazilianPhone, isPlausibleBrazilianPhone } from "@/lib/phone"
 
 type Organization = {
   id: string
@@ -65,17 +66,6 @@ function Hero({ campaign }: { campaign: Campaign }) {
   )
 }
 
-const PHONE_DIGITS_RE = /^\d{10,13}$/
-
-function digitsOnly(value: string) {
-  return value.replace(/\D/g, "")
-}
-
-function isPlausibleBrazilianPhone(value: string) {
-  const digits = digitsOnly(value)
-  return PHONE_DIGITS_RE.test(digits)
-}
-
 type EnrollFormProps = {
   organizationSlug: string
   campaignSlug: string
@@ -86,21 +76,30 @@ function EnrollForm({ organizationSlug, campaignSlug, recognized }: EnrollFormPr
   const { data, setData, post, processing, errors } = useForm({
     enrollment: { name: "", phone: "" },
   })
-  const [clientError, setClientError] = useState<string | null>(null)
+  const [clientErrors, setClientErrors] = useState<{ name?: string; phone?: string }>({})
+
+  // Server (Inertia) errors come back on flat `name`/`phone` keys; client checks
+  // layer on top. Each field renders its own error so a name problem never
+  // surfaces under the phone input.
+  const nameError = clientErrors.name ?? errors.name
+  const phoneError = clientErrors.phone ?? errors.phone
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
     if (!recognized) {
+      const next: { name?: string; phone?: string } = {}
       if (data.enrollment.name.trim().length === 0) {
-        setClientError("Informe seu nome.")
-        return
+        next.name = "Informe seu nome."
       }
       if (!isPlausibleBrazilianPhone(data.enrollment.phone)) {
-        setClientError("Informe um número de WhatsApp válido com DDD.")
+        next.phone = "Informe um número de WhatsApp válido com DDD."
+      }
+      if (next.name || next.phone) {
+        setClientErrors(next)
         return
       }
     }
-    setClientError(null)
+    setClientErrors({})
     post(`/o/${organizationSlug}/c/${campaignSlug}/enrollment`)
   }
 
@@ -123,6 +122,11 @@ function EnrollForm({ organizationSlug, campaignSlug, recognized }: EnrollFormPr
               required
               data-testid="enroll-name-input"
             />
+            {nameError && (
+              <p className="text-xs text-destructive" data-testid="enroll-name-error">
+                {nameError}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -135,14 +139,17 @@ function EnrollForm({ organizationSlug, campaignSlug, recognized }: EnrollFormPr
               placeholder="(53) 99999-1111"
               value={data.enrollment.phone}
               onChange={(e) =>
-                setData("enrollment", { ...data.enrollment, phone: e.target.value })
+                setData("enrollment", {
+                  ...data.enrollment,
+                  phone: formatBrazilianPhone(e.target.value),
+                })
               }
               required
               data-testid="enroll-phone-input"
             />
-            {(clientError || errors["enrollment.phone"] || errors["enrollment.name"]) && (
+            {phoneError && (
               <p className="text-xs text-destructive" data-testid="enroll-error">
-                {clientError ?? errors["enrollment.phone"] ?? errors["enrollment.name"]}
+                {phoneError}
               </p>
             )}
           </div>

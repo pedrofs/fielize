@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Confetti, StampThunk, Pressable } from "@/components/celebrate"
+import { formatBrazilianPhone, isPlausibleBrazilianPhone } from "@/lib/phone"
 
 type Organization = {
   id: string
@@ -187,29 +188,31 @@ function ClaimButton({ merchantSlug }: { merchantSlug: string }) {
   )
 }
 
-const PHONE_DIGITS_RE = /^\d{10,13}$/
-
-function isPlausibleBrazilianPhone(value: string) {
-  return PHONE_DIGITS_RE.test(value.replace(/\D/g, ""))
-}
-
 function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
   const { data, setData, post, processing, errors } = useForm({
     visit: { name: "", phone: "" },
   })
-  const [clientError, setClientError] = useState<string | null>(null)
+  const [clientErrors, setClientErrors] = useState<{ name?: string; phone?: string }>({})
+
+  // Server (Inertia) errors arrive on flat `name`/`phone` keys; client checks
+  // layer on top. Each field renders its own error.
+  const nameError = clientErrors.name ?? errors.name
+  const phoneError = clientErrors.phone ?? errors.phone
 
   const submit = (e: FormEvent) => {
     e.preventDefault()
+    const next: { name?: string; phone?: string } = {}
     if (data.visit.name.trim().length === 0) {
-      setClientError("Informe seu nome.")
-      return
+      next.name = "Informe seu nome."
     }
     if (!isPlausibleBrazilianPhone(data.visit.phone)) {
-      setClientError("Informe um número de WhatsApp válido com DDD.")
+      next.phone = "Informe um número de WhatsApp válido com DDD."
+    }
+    if (next.name || next.phone) {
+      setClientErrors(next)
       return
     }
-    setClientError(null)
+    setClientErrors({})
     post(`/m/${merchantSlug}/visit`)
   }
 
@@ -232,6 +235,11 @@ function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
           required
           data-testid="merchant-name-input"
         />
+        {nameError && (
+          <p className="text-xs text-destructive" data-testid="merchant-name-error">
+            {nameError}
+          </p>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -243,13 +251,15 @@ function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
           inputMode="tel"
           placeholder="(53) 99999-1111"
           value={data.visit.phone}
-          onChange={(e) => setData("visit", { ...data.visit, phone: e.target.value })}
+          onChange={(e) =>
+            setData("visit", { ...data.visit, phone: formatBrazilianPhone(e.target.value) })
+          }
           required
           data-testid="merchant-phone-input"
         />
-        {(clientError || errors.phone || errors.name) && (
+        {phoneError && (
           <p className="text-xs text-destructive" data-testid="merchant-phone-error">
-            {clientError ?? errors.phone ?? errors.name}
+            {phoneError}
           </p>
         )}
       </div>

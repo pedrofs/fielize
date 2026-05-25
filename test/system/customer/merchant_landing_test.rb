@@ -31,4 +31,19 @@ class Customer::MerchantLandingTest < ApplicationSystemTestCase
     assert_no_selector "[data-testid='merchant-celebration']"
     assert_no_selector "[data-testid='merchant-claim-cta']"
   end
+
+  test "a name error renders under the name field, not the phone field" do
+    merchant = merchants(:one)
+
+    visit "/m/#{merchant.slug}"
+
+    # Whitespace satisfies the HTML `required` guard but fails our trim check,
+    # so the client-side name error fires and must land under the name field.
+    fill_in "Nome", with: "   "
+    fill_in "WhatsApp", with: "(53) 91515-6767"
+    find("[data-testid='merchant-claim-cta']").click
+
+    assert_selector "[data-testid='merchant-name-error']", text: "Informe seu nome"
+    assert_no_selector "[data-testid='merchant-phone-error']"
+  end
 end

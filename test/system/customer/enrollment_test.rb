@@ -49,6 +49,32 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
     assert_no_selector "[data-testid='enrolled-state']"
   end
 
+  test "phone input masks the Brazilian format as the customer types" do
+    organization = organizations(:one)
+    campaign = campaigns(:pasaporte)
+
+    visit "/o/#{organization.slug}/c/#{campaign.slug}"
+
+    fill_in "WhatsApp", with: "53912123434"
+
+    assert_equal "(53) 91212-3434", find("[data-testid='enroll-phone-input']").value
+  end
+
+  test "a server-side phone error renders under the phone field" do
+    organization = organizations(:one)
+    campaign = campaigns(:pasaporte)
+
+    visit "/o/#{organization.slug}/c/#{campaign.slug}"
+
+    # Plausible client-side (10 digits) but rejected by Phonelib server-side.
+    fill_in "Nome", with: "Ana"
+    fill_in "WhatsApp", with: "0000000000"
+    find("[data-testid='enroll-cta']").click
+
+    assert_selector "[data-testid='enroll-error']", text: "Número de WhatsApp inválido", wait: 5
+    assert_no_selector "[data-testid='enrolled-state']"
+  end
+
   test "recognized Customer enrolling on a different Organization's Campaign skips phone re-entry" do
     organization_a = organizations(:one)
     campaign_a = campaigns(:pasaporte)
