@@ -118,6 +118,47 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
     end
   end
 
+  test "shows a days-remaining urgency hint for a soon-ending campaign" do
+    organization = organizations(:one)
+    campaign = campaigns(:pasaporte)
+    campaign.update!(ends_at: 3.days.from_now.change(hour: 12))
+
+    visit "/o/#{organization.slug}"
+
+    within "[data-testid='campaign-card']" do
+      assert_selector "[data-testid='campaign-card-deadline']", text: "Encerra em 3 dias"
+    end
+  end
+
+  test "omits the urgency hint for a campaign ending far in the future" do
+    organization = organizations(:one)
+    campaign = campaigns(:pasaporte)
+    campaign.update!(ends_at: 6.months.from_now)
+
+    visit "/o/#{organization.slug}"
+
+    within "[data-testid='campaign-card']" do
+      assert_no_selector "[data-testid='campaign-card-deadline']"
+    end
+  end
+
+  test "enrolled campaign card shows the customer's own progress in place of a static badge" do
+    organization = organizations(:one)
+    campaign = campaigns(:pasaporte)
+
+    visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: "Ana"
+    fill_in "WhatsApp", with: "(53) 91616-7878"
+    find("[data-testid='enroll-cta']").click
+    assert_selector "[data-testid='enrolled-state']", wait: 5
+
+    visit "/o/#{organization.slug}"
+
+    within "[data-testid='campaign-card']" do
+      assert_selector "[data-testid='enrolled-badge']", text: "0/6 lojas"
+    end
+  end
+
   test "campaigns-empty copy when org has merchants but no active campaigns" do
     organization = organizations(:one)
     organization.organization_campaigns.update_all(status: "ended")

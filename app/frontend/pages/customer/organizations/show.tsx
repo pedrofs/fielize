@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { Link, usePage } from "@inertiajs/react"
+import { ClockIcon } from "lucide-react"
 import { MapContainer, Marker, TileLayer } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
@@ -43,6 +44,10 @@ type Merchant = {
   campaigns: CampaignLink[]
 }
 
+type CampaignProgress =
+  | { kind: "cumulative"; merchantsStamped: number; nextThreshold: number | null }
+  | { kind: "simple"; entries: number }
+
 type CampaignCard = {
   id: string
   slug: string
@@ -50,6 +55,8 @@ type CampaignCard = {
   heroImageUrl: string | null
   prizeHighlight: string | null
   url: string
+  daysRemaining: number | null
+  progress: CampaignProgress | null
 }
 
 type MapCenter = {
@@ -129,6 +136,28 @@ function campaignCountLabel(count: number): string {
   if (count === 0) return "Sem campanhas aqui"
   if (count === 1) return "1 campanha aqui"
   return `${count} campanhas aqui`
+}
+
+// Only surface a deadline once it's close enough to motivate action — a date
+// months out reads as noise, not urgency.
+const URGENCY_WINDOW_DAYS = 14
+
+function deadlineLabel(daysRemaining: number | null): string | null {
+  if (daysRemaining == null || daysRemaining < 0) return null
+  if (daysRemaining > URGENCY_WINDOW_DAYS) return null
+  if (daysRemaining === 0) return "Encerra hoje"
+  if (daysRemaining === 1) return "Encerra amanhã"
+  return `Encerra em ${daysRemaining} dias`
+}
+
+// Compact "where you are" summary shown in place of a static enrolled badge.
+function progressLabel(progress: CampaignProgress): string {
+  if (progress.kind === "cumulative") {
+    return progress.nextThreshold == null
+      ? "Completo"
+      : `${progress.merchantsStamped}/${progress.nextThreshold} lojas`
+  }
+  return `${progress.entries} ${progress.entries === 1 ? "chance" : "chances"}`
 }
 
 function MerchantCard({
@@ -239,6 +268,8 @@ function CampaignCardItem({
   campaign: CampaignCard
   enrolled: boolean
 }) {
+  const deadline = deadlineLabel(campaign.daysRemaining)
+
   return (
     <Link
       href={campaign.url}
@@ -264,16 +295,25 @@ function CampaignCardItem({
           <span className="font-semibold">{campaign.name}</span>
           {enrolled && (
             <span
-              className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
+              className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
               data-testid="enrolled-badge"
             >
-              Inscrito
+              {campaign.progress ? progressLabel(campaign.progress) : "Inscrito"}
             </span>
           )}
         </div>
         {campaign.prizeHighlight && (
           <span className="text-sm text-muted-foreground">
             Prêmio: {campaign.prizeHighlight}
+          </span>
+        )}
+        {deadline && (
+          <span
+            className="inline-flex w-fit items-center gap-1 text-xs font-medium text-muted-foreground"
+            data-testid="campaign-card-deadline"
+          >
+            <ClockIcon className="size-3" />
+            {deadline}
           </span>
         )}
         <span

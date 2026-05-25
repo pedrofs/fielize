@@ -75,8 +75,38 @@ class Customer::OrganizationsController < Customer::BaseController
       name: campaign.name,
       hero_image_url: campaign.hero_image.attached? ? rails_blob_path(campaign.hero_image, only_path: true) : nil,
       prize_highlight: campaign.prizes.first&.name,
-      url: customer_organization_campaign_path(@organization.slug, campaign.slug)
+      url: customer_organization_campaign_path(@organization.slug, campaign.slug),
+      days_remaining: days_remaining(campaign.ends_at),
+      progress: enrolled_progress_for(campaign)
     }
+  end
+
+  # Whole days from today until the campaign's end date. The view decides
+  # whether a given count is close enough to surface as urgency. Nil when the
+  # campaign is open-ended.
+  def days_remaining(ends_at)
+    return nil if ends_at.nil?
+    (ends_at.to_date - Time.zone.today).to_i
+  end
+
+  # The signed-in customer's own progress on this campaign, so the card can show
+  # "where you are" instead of a static enrolled badge. Nil for visitors who
+  # aren't recognized or aren't enrolled — they see the plain "inscrever-se" card.
+  def enrolled_progress_for(campaign)
+    return nil unless @current_customer && enrolled_campaign_ids.include?(campaign.id)
+
+    progress = campaign.card_for(customer: @current_customer).progress
+    case progress[:kind]
+    when "cumulative"
+      { kind: "cumulative", merchants_stamped: progress[:merchants_stamped], next_threshold: progress[:next_threshold] }
+    when "simple"
+      { kind: "simple", entries: progress[:entries] }
+    end
+  end
+
+  def enrolled_campaign_ids
+    @enrolled_campaign_ids ||=
+      @current_customer ? @current_customer.enrollments.pluck(:campaign_id).to_set : Set.new
   end
 
   def map_center_for(mappable)
