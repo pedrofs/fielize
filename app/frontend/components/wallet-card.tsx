@@ -291,8 +291,9 @@ function CumulativeBody({
       )}
 
       {entered > 0 && (
-        <p className="text-xs font-medium text-primary">
-          ✓ Você está em {entered === 1 ? "1 sorteio" : `${entered} sorteios`}
+        <p className="flex items-center gap-1 text-xs font-medium text-primary">
+          <CheckIcon aria-hidden className="size-3.5 shrink-0" />
+          Você está em {entered === 1 ? "1 sorteio" : `${entered} sorteios`}
         </p>
       )}
 
@@ -484,8 +485,9 @@ function CumulativeHero({
         )}
       </HeroFrame>
       {entered > 0 && (
-        <p className="text-center text-sm font-medium text-primary">
-          ✓ Você está em {entered === 1 ? "1 sorteio" : `${entered} sorteios`}
+        <p className="flex items-center justify-center gap-1 text-sm font-medium text-primary">
+          <CheckIcon aria-hidden className="size-4 shrink-0" />
+          Você está em {entered === 1 ? "1 sorteio" : `${entered} sorteios`}
         </p>
       )}
       <TierMarkers tiers={tiers} />

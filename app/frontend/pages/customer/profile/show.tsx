@@ -1,5 +1,6 @@
 import { Form, router } from "@inertiajs/react"
 import { type ReactNode } from "react"
+import { CheckIcon, SparklesIcon } from "lucide-react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import {
@@ -83,10 +84,10 @@ function PhoneField({ phoneMasked }: { phoneMasked: string | null | undefined })
 function VerifiedBanner() {
   return (
     <div
-      className="flex items-center gap-3 rounded-lg border bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+      className="flex items-center gap-3 rounded-lg border bg-success/10 px-4 py-3 text-sm text-success"
       data-testid="profile-verified-banner"
     >
-      <span aria-hidden className="text-base">✓</span>
+      <CheckIcon aria-hidden className="size-4 shrink-0" />
       <span>WhatsApp confirmado</span>
     </div>
   )
@@ -97,7 +98,7 @@ function ResendBanner() {
     <Form
       method="post"
       action="/me/verification_requests"
-      className="flex flex-col gap-3 rounded-lg border bg-amber-50 px-4 py-3 text-sm text-amber-900"
+      className="flex flex-col gap-3 rounded-lg border bg-warning/10 px-4 py-3 text-sm text-warning"
     >
       {({ processing }) => (
         <>
@@ -175,8 +176,8 @@ function Placeholder() {
       className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center"
       data-testid="profile-placeholder"
     >
-      <div className="flex size-16 items-center justify-center rounded-full bg-muted text-3xl">
-        👋
+      <div className="flex size-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <SparklesIcon className="size-8" />
       </div>
       <h1 className="text-xl font-semibold tracking-tight">Bem-vindo à Fielize</h1>
       <p className="max-w-xs text-sm text-muted-foreground">

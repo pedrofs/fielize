@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react"
 
-import { CheckIcon } from "lucide-react"
+import { CalendarOffIcon, CheckIcon } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
@@ -104,8 +104,8 @@ function EmptyCampaignsState() {
       className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center"
       data-testid="merchant-empty-state"
     >
-      <div className="flex size-16 items-center justify-center rounded-full bg-muted text-3xl">
-        🤷
+      <div className="flex size-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <CalendarOffIcon className="size-8" />
       </div>
       <p className="max-w-xs text-sm text-muted-foreground">
         Este estabelecimento ainda não tem campanhas ativas.
@@ -306,7 +306,7 @@ function PendingCodeCard({ visit }: { visit: Visit }) {
         {visit.stamps.map((s) => (
           <li key={s.id} className="flex items-center justify-between gap-3 py-2">
             <span>{s.campaignName}</span>
-            <span className="text-xs text-amber-700">Aguardando…</span>
+            <span className="text-xs text-warning">Aguardando…</span>
           </li>
         ))}
       </ul>

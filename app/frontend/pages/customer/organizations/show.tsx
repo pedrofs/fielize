@@ -295,7 +295,7 @@ function CampaignCardItem({
           <span className="font-semibold">{campaign.name}</span>
           {enrolled && (
             <span
-              className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
+              className="shrink-0 rounded-full bg-success/15 px-2 py-0.5 text-xs font-medium text-success"
               data-testid="enrolled-badge"
             >
               {campaign.progress ? progressLabel(campaign.progress) : "Inscrito"}

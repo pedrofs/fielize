@@ -1,5 +1,6 @@
 import { useForm } from "@inertiajs/react"
 import type { FormEvent, ReactNode } from "react"
+import { HourglassIcon } from "lucide-react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
@@ -23,8 +24,8 @@ export default function CustomerVerificationExpired({ token }: Props) {
       className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center"
       data-testid="verification-expired"
     >
-      <div className="flex size-16 items-center justify-center rounded-full bg-amber-100 text-3xl">
-        ⌛
+      <div className="flex size-16 items-center justify-center rounded-full bg-warning/15 text-warning">
+        <HourglassIcon className="size-8" />
       </div>
       <h1 className="text-2xl font-semibold tracking-tight">
         Este link expirou

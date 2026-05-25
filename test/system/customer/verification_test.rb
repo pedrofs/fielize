@@ -14,6 +14,12 @@ class Customer::VerificationTest < ApplicationSystemTestCase
 
     assert_selector "[data-testid='verification-confirmed']", wait: 5
     assert customer.reload.verified?
+
+    # The status glyph is a lucide icon (svg), not a platform emoji.
+    within "[data-testid='verification-confirmed']" do
+      assert_selector "svg"
+      assert_no_text "✅"
+    end
   end
 
   test "tapping an expired link shows the expired page; tapping resend re-enqueues the WhatsApp job" do

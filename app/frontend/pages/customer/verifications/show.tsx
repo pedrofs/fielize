@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { Link } from "@inertiajs/react"
+import { CircleCheckIcon } from "lucide-react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
@@ -10,8 +11,8 @@ export default function CustomerVerificationShow() {
       className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center"
       data-testid="verification-confirmed"
     >
-      <div className="flex size-16 items-center justify-center rounded-full bg-emerald-100 text-3xl">
-        ✅
+      <div className="flex size-16 items-center justify-center rounded-full bg-success/15 text-success">
+        <CircleCheckIcon className="size-8" />
       </div>
       <h1 className="text-2xl font-semibold tracking-tight">
         WhatsApp confirmado!

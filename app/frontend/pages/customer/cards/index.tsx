@@ -1,5 +1,5 @@
 import { useForm } from "@inertiajs/react"
-import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "lucide-react"
 import { useState, type FormEvent, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -155,8 +155,8 @@ function Placeholder() {
       className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center"
       data-testid="wallet-placeholder"
     >
-      <div className="flex size-16 items-center justify-center rounded-full bg-muted text-3xl">
-        👋
+      <div className="flex size-16 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        <SparklesIcon className="size-8" />
       </div>
       <h1 className="text-xl font-semibold tracking-tight">Bem-vindo à Fielize</h1>
       <p className="max-w-xs text-sm text-muted-foreground">
