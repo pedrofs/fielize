@@ -1,7 +1,16 @@
 import { router, useForm, usePage } from "@inertiajs/react"
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react"
 
-import { motion, useReducedMotion } from "motion/react"
+import { CheckIcon } from "lucide-react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
@@ -289,35 +298,40 @@ function PendingCodeCard({ visit }: { visit: Visit }) {
   )
 }
 
-function ConfirmedCard({ progress }: { progress: ProgressLine[] }) {
-  const reduced = useReducedMotion()
+function ProgressList({ progress }: { progress: ProgressLine[] }) {
+  if (progress.length === 0) return null
   return (
-    <motion.section
-      className="relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border border-reward/40 bg-reward/15 p-6 text-center"
-      data-testid="merchant-confirmed-card"
-      initial={reduced ? false : { opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: "spring", stiffness: 320, damping: 26 }}
+    <ul className="flex w-full flex-col divide-y divide-reward/30 border-t border-reward/30 pt-3 text-sm">
+      {progress.map((p) => (
+        <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+          <span className="font-medium">{p.name}</span>
+          <span className="font-semibold tabular-nums">
+            {p.kind === "loyalty"
+              ? `${p.balance} selo${p.balance === 1 ? "" : "s"}`
+              : `${p.entries} entrada${p.entries === 1 ? "" : "s"}`}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+// State 7: refresh-safe, derived purely from DB state. No confetti — the
+// celebration is a transition event (see CelebrationOverlay), never replayed
+// from persistent state. The claim CTA is suppressed (one Visit per local_day).
+function CalmConfirmedCard({ progress }: { progress: ProgressLine[] }) {
+  return (
+    <section
+      className="flex flex-col items-center gap-4 rounded-2xl border bg-card p-6 text-center"
+      data-testid="merchant-calm-confirmed"
     >
-      <Confetti />
-      <StampThunk className="size-16" />
-      <p className="text-lg font-semibold">
-        Selo confirmado! Volte amanhã para ganhar mais.
+      <div className="flex size-14 items-center justify-center rounded-full bg-reward/15 text-reward">
+        <CheckIcon className="size-7" strokeWidth={3} />
+      </div>
+      <p className="text-base font-medium">
+        Você já ganhou seu selo hoje · volte amanhã para ganhar mais.
       </p>
-      {progress.length > 0 && (
-        <ul className="flex w-full flex-col divide-y divide-reward/30 border-t border-reward/30 pt-3 text-sm">
-          {progress.map((p) => (
-            <li key={p.id} className="flex items-center justify-between gap-3 py-2">
-              <span className="font-medium">{p.name}</span>
-              <span className="font-semibold tabular-nums">
-                {p.kind === "loyalty"
-                  ? `${p.balance} selo${p.balance === 1 ? "" : "s"}`
-                  : `${p.entries} entrada${p.entries === 1 ? "" : "s"}`}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <ProgressList progress={progress} />
       <a
         href="/me"
         className="text-sm font-medium underline underline-offset-4"
@@ -325,7 +339,38 @@ function ConfirmedCard({ progress }: { progress: ProgressLine[] }) {
       >
         Ver minhas inscrições
       </a>
-    </motion.section>
+    </section>
+  )
+}
+
+const CELEBRATION_MS = 2600
+const CELEBRATION_REDUCED_MS = 1200
+
+// Keyed to the observed pending→confirmed transition, not to DB state, so a
+// refresh can't replay it. Auto-dismisses to reveal the calm landing beneath.
+function CelebrationOverlay({ onDone }: { onDone: () => void }) {
+  const reduced = useReducedMotion()
+
+  useEffect(() => {
+    const id = window.setTimeout(onDone, reduced ? CELEBRATION_REDUCED_MS : CELEBRATION_MS)
+    return () => window.clearTimeout(id)
+  }, [onDone, reduced])
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-reward/15 px-6 text-center backdrop-blur-sm"
+      data-testid="merchant-celebration"
+      role="status"
+      aria-live="polite"
+      initial={reduced ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={reduced ? undefined : { opacity: 0 }}
+      transition={{ duration: 0.25 }}
+    >
+      <Confetti />
+      <StampThunk className="size-20" />
+      <p className="text-2xl font-semibold">Selo confirmado!</p>
+    </motion.div>
   )
 }
 
@@ -337,6 +382,22 @@ function usePollWhilePending(pageState: number) {
     }, POLL_INTERVAL_MS)
     return () => window.clearInterval(id)
   }, [pageState])
+}
+
+// Fire the one-shot celebration when the poll loop observes the page move from
+// the pending code (6) to the confirmed state (7). A direct load into state 7
+// (a refresh after confirmation) initializes `prev` to 7 and never celebrates.
+function useStampConfirmedCelebration(pageState: number) {
+  const [celebrating, setCelebrating] = useState(false)
+  const prev = useRef(pageState)
+
+  useEffect(() => {
+    if (prev.current === 6 && pageState === 7) setCelebrating(true)
+    prev.current = pageState
+  }, [pageState])
+
+  const dismiss = useCallback(() => setCelebrating(false), [])
+  return { celebrating, dismiss }
 }
 
 export default function CustomerMerchantShow({
@@ -351,6 +412,7 @@ export default function CustomerMerchantShow({
   const currentCustomer = page.props.currentCustomer
 
   usePollWhilePending(pageState)
+  const { celebrating, dismiss } = useStampConfirmedCelebration(pageState)
 
   const grouped = useMemo(() => {
     return campaigns.some((c) => !c.enrolled) && campaigns.some((c) => c.enrolled)
@@ -401,7 +463,11 @@ export default function CustomerMerchantShow({
 
       {pageState === 6 && visit && <PendingCodeCard visit={visit} />}
 
-      {pageState === 7 && <ConfirmedCard progress={progress} />}
+      {pageState === 7 && <CalmConfirmedCard progress={progress} />}
+
+      <AnimatePresence>
+        {celebrating && <CelebrationOverlay key="celebration" onDone={dismiss} />}
+      </AnimatePresence>
     </article>
   )
 }
