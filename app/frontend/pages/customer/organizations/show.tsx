@@ -66,30 +66,49 @@ type Props = {
 }
 
 function OrgHeader({ organization }: { organization: Organization }) {
+  const hasLogo = Boolean(organization.imageUrl)
   return (
-    <header className="flex flex-col gap-4 pt-6 pb-6">
-      {organization.heroImageUrl && (
-        <img
-          src={organization.heroImageUrl}
-          alt=""
-          className="-mx-4 h-44 w-screen max-w-screen-sm object-cover sm:mx-0 sm:w-full sm:rounded-lg"
-          data-testid="org-hero-image"
-        />
-      )}
-      <div className="flex flex-col items-center gap-3 text-center">
+    <header className="flex flex-col pt-6 pb-6">
+      {/* Backdrop: the hero image when set, otherwise a primary → secondary
+          gradient so the header never reads as unconfigured. Both inherit the
+          org's theme tokens (set in CustomerLayout) and fall back to the
+          default theme when the org has no custom colors. */}
+      <div className="relative -mx-4 sm:mx-0">
+        {organization.heroImageUrl ? (
+          <img
+            src={organization.heroImageUrl}
+            alt=""
+            className="h-44 w-full object-cover sm:rounded-lg"
+            data-testid="org-hero-image"
+          />
+        ) : (
+          <div
+            className="h-44 w-full sm:rounded-lg"
+            style={{
+              background:
+                "linear-gradient(135deg, var(--primary), var(--accent))",
+            }}
+            data-testid="org-hero-gradient"
+          />
+        )}
         {organization.imageUrl && (
           <img
             src={organization.imageUrl}
             alt={organization.name ?? ""}
-            className="size-20 rounded-full border-4 border-background object-cover"
+            className="absolute -bottom-10 left-4 size-20 rounded-full border-4 border-background object-cover"
+            data-testid="org-logo"
           />
         )}
+      </div>
+      {/* Name + bio, offset to clear the overlapping logo. Left-aligned so
+          they read as one branded unit and multi-line bios stay legible. */}
+      <div className={`flex flex-col gap-2 ${hasLogo ? "pt-12" : "pt-4"}`}>
         <h1 className="text-2xl font-semibold tracking-tight">
           {organization.name}
         </h1>
         {organization.bioHtml && (
           <div
-            className="prose prose-sm max-w-none text-sm text-muted-foreground"
+            className="prose prose-sm max-w-none text-left text-sm text-muted-foreground"
             data-testid="org-bio"
             dangerouslySetInnerHTML={{ __html: organization.bioHtml }}
           />
