@@ -375,6 +375,184 @@ export function CardBody({ card }: { card: CardPresentation }) {
   }
 }
 
+// A bigger, punch-card-style row of dots for the detail screen, where the card
+// earns more visual weight than the compact wallet summary. Empty slots are
+// dashed outlines; filled slots are solid with a check.
+function HeroDots({ filled, total }: { filled: number; total: number }) {
+  if (total > MAX_DOTS) {
+    return (
+      <p className="text-3xl font-bold tabular-nums">
+        {filled}
+        <span className="text-lg font-medium text-muted-foreground">
+          {" / "}
+          {total}
+        </span>
+      </p>
+    )
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center justify-center gap-2"
+      aria-hidden
+    >
+      {Array.from({ length: total }).map((_, index) => (
+        <span
+          key={index}
+          className={cn(
+            "flex size-9 items-center justify-center rounded-full border-2",
+            index < filled
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-dashed border-border bg-muted",
+          )}
+        >
+          {index < filled && <CheckIcon className="size-4" />}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function HeroFrame({
+  caption,
+  children,
+}: {
+  caption?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-4 rounded-2xl border bg-gradient-to-b from-primary/5 to-card p-6 text-center"
+      data-testid="card-hero"
+    >
+      {children}
+      {caption && <p className="text-sm text-muted-foreground">{caption}</p>}
+    </div>
+  )
+}
+
+function LoyaltyHero({ progress }: { progress: LoyaltyProgress }) {
+  const { balance, nextThreshold, tiers } = progress
+
+  return (
+    <div className="flex flex-col gap-4">
+      <HeroFrame
+        caption={
+          nextThreshold != null
+            ? `${balance} de ${nextThreshold} carimbos para o próximo prêmio`
+            : `${balance} carimbos acumulados`
+        }
+      >
+        {nextThreshold != null ? (
+          <HeroDots filled={balance} total={nextThreshold} />
+        ) : (
+          <p className="text-lg font-semibold text-primary">
+            Todos os prêmios liberados 🎉
+          </p>
+        )}
+      </HeroFrame>
+      <TierMarkers tiers={tiers} />
+    </div>
+  )
+}
+
+function CumulativeHero({
+  progress,
+  awaiting,
+}: {
+  progress: CumulativeProgress
+  awaiting: boolean
+}) {
+  const { merchantsStamped, nextThreshold, tiers } = progress
+  const entered = tiers.filter((tier) => tier.reached).length
+
+  return (
+    <div className="flex flex-col gap-4">
+      <HeroFrame
+        caption={
+          nextThreshold != null
+            ? `${merchantsStamped} de ${nextThreshold} lojas para entrar no próximo sorteio`
+            : `${merchantsStamped} lojas visitadas`
+        }
+      >
+        {nextThreshold != null ? (
+          <HeroDots filled={merchantsStamped} total={nextThreshold} />
+        ) : (
+          <p className="text-lg font-semibold text-primary">
+            Você entrou em todos os sorteios 🎉
+          </p>
+        )}
+      </HeroFrame>
+      {entered > 0 && (
+        <p className="text-center text-sm font-medium text-primary">
+          ✓ Você está em {entered === 1 ? "1 sorteio" : `${entered} sorteios`}
+        </p>
+      )}
+      <TierMarkers tiers={tiers} />
+      {awaiting && (
+        <p className="text-center text-xs text-muted-foreground">
+          A campanha encerrou. Aguardando o sorteio dos prêmios.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function SimpleHero({
+  progress,
+  awaiting,
+}: {
+  progress: SimpleProgress
+  awaiting: boolean
+}) {
+  const { entries, drawAt } = progress
+
+  return (
+    <div className="flex flex-col gap-4">
+      <HeroFrame
+        caption={
+          entries === 1 ? "1 chance no sorteio" : `${entries} chances no sorteio`
+        }
+      >
+        <p className="text-4xl font-bold tabular-nums text-primary">{entries}</p>
+        <div className="flex justify-center">
+          <EntryDots entries={entries} />
+        </div>
+      </HeroFrame>
+      {awaiting ? (
+        <p className="text-center text-xs text-muted-foreground">
+          A campanha encerrou. Aguardando o sorteio.
+        </p>
+      ) : (
+        drawAt && (
+          <p className="text-center text-xs text-muted-foreground">
+            Sorteio em {formatDate(drawAt)}
+          </p>
+        )
+      )}
+    </div>
+  )
+}
+
+// The detail screen's prominent progress hero. Terminal/textual states fall
+// back to the shared CardBody — the won/lost/redeemed copy needs no punch-card.
+export function HeroProgress({ card }: { card: CardPresentation }) {
+  if (card.state === "won" || card.state === "lost" || card.state === "redeemed") {
+    return <CardBody card={card} />
+  }
+
+  const awaiting = card.state === "awaiting_draw"
+
+  switch (card.progress.kind) {
+    case "loyalty":
+      return <LoyaltyHero progress={card.progress} />
+    case "cumulative":
+      return <CumulativeHero progress={card.progress} awaiting={awaiting} />
+    case "simple":
+      return <SimpleHero progress={card.progress} awaiting={awaiting} />
+  }
+}
+
 // The tappable Wallet summary: links to the card detail at `/me/cartoes/:id`.
 export function WalletCard({ card }: { card: WalletCardData }) {
   return (

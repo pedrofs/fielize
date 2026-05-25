@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "test_helper"
+require "inertia_rails/minitest"
 
 class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
   test "index responds 200 for a visitor without a cookie" do
@@ -55,6 +56,44 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
 
     get customer_card_path(SecureRandom.uuid)
     assert_response :not_found
+  end
+
+  test "show serializes the merchant landing url for a loyalty card" do
+    sign_in_via_enrollment
+    customer   = Customer.find_by(phone: "+5553999990000")
+    enrollment = campaigns(:cartao_calzados).enroll!(customer: customer)
+
+    get customer_card_path(enrollment.id)
+    assert_response :success
+    assert_inertia_props do |props|
+      assert_equal "/m/calzados-ricardo", props[:card][:merchant_url]
+    end
+  end
+
+  test "show serializes the merchant landing url for a single-merchant org campaign" do
+    sign_in_via_enrollment
+    enrollment = Customer.find_by(phone: "+5553999990000").enrollments.first
+
+    get customer_card_path(enrollment.id)
+    assert_response :success
+    assert_inertia_props do |props|
+      assert_equal "/m/calzados-ricardo", props[:card][:merchant_url]
+    end
+  end
+
+  test "show leaves the merchant landing url nil for a multi-merchant org campaign" do
+    sign_in_via_enrollment
+    second = organizations(:one).merchants.create!(
+      name: "Segunda Loja", latitude: -32.0, longitude: -53.0
+    )
+    campaigns(:pasaporte).campaign_merchants.create!(merchant: second)
+    enrollment = Customer.find_by(phone: "+5553999990000").enrollments.first
+
+    get customer_card_path(enrollment.id)
+    assert_response :success
+    assert_inertia_props do |props|
+      assert_nil props[:card][:merchant_url]
+    end
   end
 
   private

@@ -1,9 +1,9 @@
 import { Link } from "@inertiajs/react"
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react"
+import { ArrowLeftIcon, ArrowRightIcon, StoreIcon } from "lucide-react"
 import { type ReactNode } from "react"
 
 import {
-  CardBody,
+  HeroProgress,
   OrgLabel,
   StatusBadge,
   type CardState,
@@ -35,6 +35,7 @@ type CardDetail = {
   merchants: CardMerchant[]
   termsHtml: string | null
   campaignUrl: string
+  merchantUrl: string | null
 }
 
 type Props = {
@@ -89,8 +90,19 @@ export default function CustomerCardShow({ card }: Props) {
 
       <section className="flex flex-col gap-3" data-testid="card-progress">
         <RedemptionInstructions card={card} />
-        <CardBody card={card} />
+        <HeroProgress card={card} />
       </section>
+
+      {card.merchantUrl && (
+        <Link
+          href={card.merchantUrl}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          data-testid="go-to-store"
+        >
+          <StoreIcon className="size-4" />
+          Ir para a loja
+        </Link>
+      )}
 
       {card.prizes.length > 0 && (
         <section className="flex flex-col gap-2" data-testid="card-prizes">

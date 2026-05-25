@@ -92,7 +92,18 @@ class Customer::CardsController < Customer::BaseController
       prizes: campaign.prizes.order(:position).map { |p| { id: p.id, name: p.name, threshold: p.threshold } },
       merchants: merchants.map { |m| { id: m.id, name: m.name, address: m.address } },
       terms_html: terms&.to_html,
-      campaign_url: customer_organization_campaign_path(organization.slug, campaign.slug)
+      campaign_url: customer_organization_campaign_path(organization.slug, campaign.slug),
+      merchant_url: merchant_landing_url_for(merchants)
     }
+  end
+
+  # The "Ir para a loja" CTA only makes sense pointing at a single, unambiguous
+  # store. Loyalty cards always have exactly one merchant; an org campaign has a
+  # store list, so we only link when it has resolved to a single participant —
+  # otherwise the merchant list + campaign-page link cover discovery.
+  def merchant_landing_url_for(merchants)
+    return nil unless merchants.one?
+
+    customer_merchant_path(merchants.first.slug)
   end
 end
