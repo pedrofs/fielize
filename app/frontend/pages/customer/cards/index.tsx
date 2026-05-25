@@ -1,9 +1,18 @@
-import { usePage } from "@inertiajs/react"
+import { useForm, usePage } from "@inertiajs/react"
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react"
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useState, type FormEvent, type ReactNode } from "react"
 
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { WalletCard, type WalletCardData } from "@/components/wallet-card"
 import { CustomerLayout } from "@/layouts/customer-layout"
+
+const PHONE_DIGITS_RE = /^\d{10,13}$/
+
+function isPlausibleBrazilianPhone(value: string) {
+  return PHONE_DIGITS_RE.test(value.replace(/\D/g, ""))
+}
 
 type Card = WalletCardData
 
@@ -88,6 +97,63 @@ function CollapsibleSection({
   )
 }
 
+function RestoreForm() {
+  const { data, setData, post, processing } = useForm({
+    walletRecovery: { phone: "" },
+  })
+  const [clientError, setClientError] = useState<string | null>(null)
+
+  const submit = (e: FormEvent) => {
+    e.preventDefault()
+    if (!isPlausibleBrazilianPhone(data.walletRecovery.phone)) {
+      setClientError("Informe um número de WhatsApp válido com DDD.")
+      return
+    }
+    setClientError(null)
+    post("/wallet_recoveries")
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="mt-2 flex w-full max-w-xs flex-col gap-3 text-left"
+      data-testid="wallet-restore-form"
+    >
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="wallet-recovery-phone">WhatsApp</Label>
+        <Input
+          id="wallet-recovery-phone"
+          name="wallet_recovery[phone]"
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="(53) 99999-1111"
+          value={data.walletRecovery.phone}
+          onChange={(e) =>
+            setData("walletRecovery", { phone: e.target.value })
+          }
+          required
+          data-testid="wallet-restore-phone-input"
+        />
+        {clientError && (
+          <p className="text-xs text-destructive" data-testid="wallet-restore-error">
+            {clientError}
+          </p>
+        )}
+      </div>
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={processing}
+        data-testid="wallet-restore-cta"
+      >
+        Entrar com WhatsApp
+      </Button>
+    </form>
+  )
+}
+
 function Placeholder() {
   return (
     <article
@@ -103,6 +169,10 @@ function Placeholder() {
         organização e toque em <span className="font-medium">Quero participar</span>{" "}
         para começar.
       </p>
+      <p className="max-w-xs text-sm text-muted-foreground">
+        Já participa em outro aparelho? Recupere seus cartões pelo WhatsApp.
+      </p>
+      <RestoreForm />
     </article>
   )
 }

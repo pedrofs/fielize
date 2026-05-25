@@ -38,6 +38,14 @@ class WhatsAppDeliveryJobTest < ActiveJob::TestCase
     assert_empty @fake.calls
   end
 
+  test "dispatches for an already-verified customer when forced (Wallet restore)" do
+    verified = customers(:joao)
+
+    WhatsAppDeliveryJob.perform_now(customer_id: verified.id, force: true)
+
+    assert_equal [ verified.id ], @fake.calls.map(&:id)
+  end
+
   test "is a no-op when the customer no longer exists" do
     WhatsAppDeliveryJob.perform_now(customer_id: "00000000-0000-0000-0000-000000000000")
 

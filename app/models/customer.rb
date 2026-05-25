@@ -3,6 +3,7 @@
 class Customer < ApplicationRecord
   include Identifiable
   include Verifiable
+  include Restorable
 
   has_many :visits, dependent: :restrict_with_exception
   has_many :stamps, dependent: :restrict_with_exception

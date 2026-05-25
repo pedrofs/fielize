@@ -19,6 +19,7 @@ Rails.application.routes.draw do
 
     get  "/v/:token", to: "verifications#show", as: :verification, constraints: { token: %r{[^/]+} }, format: false
     post "/verification_requests", to: "verification_requests#create", as: :verification_requests
+    post "/wallet_recoveries", to: "wallet_recoveries#create", as: :wallet_recoveries
 
     get    "/me",                       to: "cards#index",                            as: :wallet
     get    "/me/cartoes/:id",           to: "cards#show",                             as: :card
