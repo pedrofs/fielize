@@ -30,7 +30,7 @@ class Customer::EnrollmentTest < ApplicationSystemTestCase
     assert_equal "Ana Souza", customer.name
     assert Enrollment.exists?(customer: customer, campaign: campaign)
 
-    assert_selector "[data-testid='flash-toast']"
+    assert_selector "[data-sonner-toast]"
     assert_text(/inscrição confirmada/i)
     assert_no_selector "[data-testid='enroll-form']"
   end

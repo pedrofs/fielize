@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react"
+import { useMemo, useState, type FormEvent, type ReactNode } from "react"
 import { useForm, usePage } from "@inertiajs/react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
@@ -190,32 +190,9 @@ function EnrolledState() {
   )
 }
 
-function FlashToast({ message }: { message: string }) {
-  const [visible, setVisible] = useState(true)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), 5000)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  if (!visible) return null
-  return (
-    <div
-      role="status"
-      className="fixed inset-x-0 top-3 z-50 mx-auto max-w-screen-sm px-4"
-      data-testid="flash-toast"
-    >
-      <div className="rounded-md bg-foreground/95 px-4 py-3 text-sm text-background shadow-lg">
-        {message}
-      </div>
-    </div>
-  )
-}
-
 export default function CustomerCampaignShow({ organization, campaign }: Props) {
   const page = usePage()
   const currentCustomer = page.props.currentCustomer
-  const flash = page.flash
 
   const isEnrolled = useMemo(() => {
     if (!currentCustomer) return false
@@ -224,8 +201,6 @@ export default function CustomerCampaignShow({ organization, campaign }: Props) 
 
   return (
     <article className="flex flex-col gap-6 pb-10">
-      {flash?.notice && <FlashToast message={flash.notice} />}
-
       <Hero campaign={campaign} />
 
       <header className="flex flex-col gap-2">

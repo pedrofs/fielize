@@ -2,6 +2,7 @@ import { Head, usePage } from "@inertiajs/react"
 import type { CSSProperties, ReactNode } from "react"
 
 import { CustomerToolbar } from "@/components/customer-toolbar"
+import { FlashToaster } from "@/components/flash-toaster"
 import { InstallBanner } from "@/components/install-banner"
 
 type OrgBranding = {
@@ -68,6 +69,7 @@ export function CustomerLayout({ children }: { children: ReactNode }) {
         <div className="mx-auto flex min-h-screen max-w-screen-sm flex-col px-4 pb-[calc(4rem+env(safe-area-inset-bottom))]">
           {children}
         </div>
+        <FlashToaster />
         <InstallBanner />
         <CustomerToolbar />
       </div>

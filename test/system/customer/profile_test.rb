@@ -16,7 +16,7 @@ class Customer::ProfileTest < ApplicationSystemTestCase
     assert_selector "[data-testid='enrolled-state']", wait: 5
 
     visit "/me"
-    assert_selector "[data-testid='wallet-enrollments']"
+    assert_selector "[data-testid='wallet-sections']"
     assert_text organization.name
     assert_text campaign.name
 
@@ -28,8 +28,29 @@ class Customer::ProfileTest < ApplicationSystemTestCase
 
     assert_enqueued_with(job: WhatsAppDeliveryJob) do
       find("[data-testid='profile-verification-resend']").click
-      assert_selector "[data-testid='flash-toast']", wait: 5
+      assert_text "Enviamos um novo link para o seu WhatsApp.", wait: 5
     end
+  end
+
+  test "the shared flash toast is dismissible" do
+    organization = organizations(:one)
+    campaign = campaigns(:pasaporte)
+
+    visit "/o/#{organization.slug}/c/#{campaign.slug}"
+    fill_in "Nome", with: "Ana"
+    fill_in "WhatsApp", with: "(53) 92020-1212"
+    find("[data-testid='enroll-cta']").click
+    assert_selector "[data-testid='enrolled-state']", wait: 5
+
+    visit "/me/perfil"
+    find("[data-testid='profile-verification-resend']").click
+
+    assert_selector "[data-sonner-toast]", wait: 5
+    assert_text "Enviamos um novo link para o seu WhatsApp."
+
+    find("[data-close-button]").click
+
+    assert_no_selector "[data-sonner-toast]"
   end
 
   test "editing the display name on /me/perfil persists the change" do
@@ -72,7 +93,7 @@ class Customer::ProfileTest < ApplicationSystemTestCase
   test "a visitor with no cookie sees the placeholder copy on /me" do
     visit "/me"
     assert_selector "[data-testid='wallet-placeholder']"
-    assert_no_selector "[data-testid='wallet-enrollments']"
+    assert_no_selector "[data-testid='wallet-sections']"
   end
 
   test "a verified Customer sees the Verified banner instead of the resend affordance" do

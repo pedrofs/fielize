@@ -1,5 +1,5 @@
-import { Form, usePage } from "@inertiajs/react"
-import { useEffect, useState, type ReactNode } from "react"
+import { Form } from "@inertiajs/react"
+import { type ReactNode } from "react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
@@ -158,44 +158,13 @@ function Placeholder() {
   )
 }
 
-function FlashToast({ message }: { message: string }) {
-  const [visible, setVisible] = useState(true)
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setVisible(false), 5000)
-    return () => window.clearTimeout(timer)
-  }, [])
-
-  if (!visible) return null
-  return (
-    <div
-      role="status"
-      className="fixed inset-x-0 top-3 z-50 mx-auto max-w-screen-sm px-4"
-      data-testid="flash-toast"
-    >
-      <div className="rounded-md bg-foreground/95 px-4 py-3 text-sm text-background shadow-lg">
-        {message}
-      </div>
-    </div>
-  )
-}
-
 export default function CustomerProfileShow({ profile }: Props) {
-  const flash = usePage().flash
-
   if (!profile.recognized) {
-    return (
-      <>
-        {flash?.notice && <FlashToast message={flash.notice} />}
-        <Placeholder />
-      </>
-    )
+    return <Placeholder />
   }
 
   return (
     <article className="flex flex-col gap-6 py-6" data-testid="profile">
-      {flash?.notice && <FlashToast message={flash.notice} />}
-
       <header className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold tracking-tight">Perfil</h1>
         <p className="text-sm text-muted-foreground">
