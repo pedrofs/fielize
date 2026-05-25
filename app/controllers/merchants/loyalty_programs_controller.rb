@@ -9,10 +9,15 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
   def show
     set_title "Cartão Fidelidade"
 
-    render inertia: {
+    props = {
       loyalty_program: serialize(@loyalty),
       prizes: @loyalty.prizes.ordered.map { |p| serialize_prize(p) }
     }
+    # Lifecycle branch: draft renders the live preview Card. The active branch
+    # (standings + metrics) is added in later slices.
+    props[:preview_card] = serialize_card(@loyalty.preview_card) if @loyalty.draft?
+
+    render inertia: props
   end
 
   def update
@@ -54,6 +59,20 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
       name: loyalty.name,
       status: loyalty.status,
       effective_from_at: loyalty.effective_from_at
+    }
+  end
+
+  # A CardPresentation (state + organization + progress) — the same shape
+  # `Customer::CardsController` serializes, so the frontend reuses CardBody.
+  def serialize_card(card)
+    organization = card.organization
+    {
+      state: card.state,
+      organization: {
+        name: organization.name,
+        image_url: organization.image_url
+      },
+      progress: card.progress
     }
   end
 

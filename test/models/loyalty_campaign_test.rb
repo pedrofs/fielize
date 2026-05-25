@@ -56,6 +56,49 @@ class LoyaltyCampaignTest < ActiveSupport::TestCase
     assert_equal(-4, campaign.balance_for(customer))
   end
 
+  test "preview_card is a zero-balance collecting card built from prizes, tiers ordered by threshold" do
+    campaign = LoyaltyCampaign.create!(@valid_attrs.merge(
+      name: "Preview LC", slug: "preview-lc", status: "draft"
+    ))
+    campaign.prizes.create!(name: "Brinde", threshold: 10)
+    campaign.prizes.create!(name: "Café", threshold: 3)
+
+    card = campaign.preview_card
+    progress = card.progress
+
+    assert_nil card.customer
+    assert_equal "collecting", card.state
+    assert_equal "loyalty", progress[:kind]
+    assert_equal 0, progress[:balance]
+    assert_equal 3, progress[:next_threshold]
+    assert_equal [ 3, 10 ], progress[:tiers].map { |t| t[:threshold] }
+    assert progress[:tiers].none? { |t| t[:reached] }
+  end
+
+  test "preview_card with no prizes returns empty tiers and nil next_threshold without crashing" do
+    campaign = LoyaltyCampaign.create!(@valid_attrs.merge(
+      name: "Empty LC", slug: "empty-lc", status: "draft"
+    ))
+
+    card = campaign.preview_card
+
+    assert_equal "collecting", card.state
+    assert_equal 0, card.progress[:balance]
+    assert_equal [], card.progress[:tiers]
+    assert_nil card.progress[:next_threshold]
+  end
+
+  test "preview_card stays collecting regardless of campaign status" do
+    # card_for on a non-active campaign would be "disabled"; the preview ignores
+    # status so a draft renders the brand-new-customer view, not a dead card.
+    campaign = LoyaltyCampaign.create!(@valid_attrs.merge(
+      name: "Draft LC", slug: "draft-lc", status: "draft"
+    ))
+    campaign.prizes.create!(name: "Café", threshold: 5)
+
+    assert_equal "collecting", campaign.preview_card.state
+  end
+
   test "disable! sets status ended and optionally effective_from_at" do
     campaign = campaigns(:cartao_calzados)
     campaign.disable!

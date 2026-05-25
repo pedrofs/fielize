@@ -39,6 +39,21 @@ class LoyaltyCampaign < Campaign
     )
   end
 
+  # The Card a brand-new Customer would see — balance 0, every tier unreached —
+  # built straight from the Prizes with no Customer. The merchant's draft page
+  # renders it as a live "como seu cliente vê o cartão" preview, so its shape
+  # mirrors `card_for` and reuses the same CardBody. Unlike `card_for` it stays
+  # `collecting` regardless of status (a draft isn't `active`, so `card_state`
+  # would otherwise read `disabled`).
+  def preview_card
+    Card.new(
+      campaign: self,
+      customer: nil,
+      state: "collecting",
+      progress: card_progress(0)
+    )
+  end
+
   # Re-checks balance under transaction so a stale preview can't issue
   # an over-balance redemption. Raises ActiveRecord::RecordInvalid on
   # failure; controller rescues for the friendly-error path.

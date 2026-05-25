@@ -13,11 +13,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  CardBody,
+  OrgLabel,
+  type CardPresentation,
+} from "@/components/wallet-card"
 import type { LoyaltyProgram, LoyaltyPrize } from "@/types"
 
 type Props = {
   loyaltyProgram: LoyaltyProgram
   prizes: LoyaltyPrize[]
+  // Draft only: the Card a brand-new Customer sees, rendered with the same
+  // CardBody as the customer Wallet. Re-rendered as Prizes are added/removed.
+  previewCard?: CardPresentation
 }
 
 const STATUS_LABELS: Record<LoyaltyProgram["status"], string> = {
@@ -26,7 +34,11 @@ const STATUS_LABELS: Record<LoyaltyProgram["status"], string> = {
   ended: "Desativado",
 }
 
-export default function LoyaltyProgramShow({ loyaltyProgram, prizes }: Props) {
+export default function LoyaltyProgramShow({
+  loyaltyProgram,
+  prizes,
+  previewCard,
+}: Props) {
   const [disableOpen, setDisableOpen] = useState(false)
   const [resetMode, setResetMode] = useState<"keep" | "reset">("keep")
 
@@ -86,6 +98,28 @@ export default function LoyaltyProgramShow({ loyaltyProgram, prizes }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {isDraft && previewCard && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Prévia — como seu cliente vê o cartão</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div
+              className="flex flex-col gap-3 rounded-xl border bg-card p-4"
+              data-testid="loyalty-preview-card"
+            >
+              <header className="flex flex-col gap-1">
+                <OrgLabel organization={previewCard.organization} />
+                <h3 className="font-semibold leading-tight">
+                  {loyaltyProgram.name}
+                </h3>
+              </header>
+              <CardBody card={previewCard} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
