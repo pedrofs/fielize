@@ -24,6 +24,21 @@ class LoyaltyCampaign < Campaign
     end
   end
 
+  # Builds the customer's Card: a punchcard driven by the spend-down
+  # `balance_for` against the prize tiers. An inactive campaign is `disabled`
+  # regardless of balance; otherwise reaching the cheapest prize makes it
+  # `redeemable`, and progress always exposes the tiers (so a redeemable card
+  # can still show the next, higher unreached tier).
+  def card_for(customer:)
+    balance = balance_for(customer)
+    Card.new(
+      campaign: self,
+      customer: customer,
+      state: card_state(balance),
+      progress: card_progress(balance)
+    )
+  end
+
   # Re-checks balance under transaction so a stale preview can't issue
   # an over-balance redemption. Raises ActiveRecord::RecordInvalid on
   # failure; controller rescues for the friendly-error path.
@@ -48,6 +63,26 @@ class LoyaltyCampaign < Campaign
   end
 
   private
+
+  def card_state(balance)
+    return "disabled" unless active?
+
+    minimum = prizes.minimum(:threshold)
+    minimum && balance >= minimum ? "redeemable" : "collecting"
+  end
+
+  def card_progress(balance)
+    tiers = prizes.reorder(:threshold).map do |prize|
+      { name: prize.name, threshold: prize.threshold, reached: balance >= prize.threshold }
+    end
+
+    {
+      kind: "loyalty",
+      balance: balance,
+      next_threshold: tiers.find { |tier| !tier[:reached] }&.fetch(:threshold),
+      tiers: tiers
+    }
+  end
 
   def entry_policy_must_be_blank
     errors.add(:entry_policy, "must be blank for LoyaltyCampaign") if entry_policy.present?

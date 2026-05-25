@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 # The customer's Wallet at `/me` — the PWA `start_url` and the landing tab
-# of the bottom toolbar. For now it lists the visitor's Enrollments grouped
-# by Organization; a later slice reshapes these into stamp-card views.
+# of the bottom toolbar. Renders the visitor's Cards across every Organization,
+# bucketed into Para resgatar / Ativas / Encerradas sections.
 #
 # Visitors with no signed cookie see a friendly placeholder. There is no
 # auth gate — the page renders for anyone, the cookie just decides the state.
@@ -20,34 +20,34 @@ class Customer::CardsController < Customer::BaseController
   private
 
   def serialize_wallet(customer)
-    return { recognized: false, organizations: [] } unless customer
+    return { recognized: false, sections: empty_sections } unless customer
 
-    enrollments = customer.enrollments
-                          .includes(campaign: :organization)
-                          .order(:created_at)
-
-    grouped = enrollments.group_by { |e| e.campaign.organization }
-    organizations = grouped.map do |org, rows|
-      {
-        id: org.id,
-        name: org.name,
-        slug: org.slug,
-        image_url: org.image_url,
-        url: customer_organization_path(org.slug),
-        enrollments: rows.map { |e| serialize_enrollment(e) }
-      }
+    sections = Customer::Wallet.new(customer).sections.transform_values do |cards|
+      cards.map { |card| serialize_card(card) }
     end
 
-    { recognized: true, organizations: organizations }
+    { recognized: true, sections: sections }
   end
 
-  def serialize_enrollment(enrollment)
-    campaign = enrollment.campaign
+  def empty_sections
+    Customer::Wallet::SECTION_ORDER.index_with { [] }
+  end
+
+  def serialize_card(card)
+    campaign     = card.campaign
+    organization = card.organization
+
     {
-      id: enrollment.id,
-      campaign_id: campaign.id,
+      id: campaign.id,
+      state: card.state,
+      section: card.section,
       campaign_name: campaign.name,
-      url: customer_organization_campaign_path(campaign.organization.slug, campaign.slug)
+      organization: {
+        name: organization.name,
+        image_url: organization.image_url
+      },
+      url: customer_organization_campaign_path(organization.slug, campaign.slug),
+      progress: card.progress
     }
   end
 end
