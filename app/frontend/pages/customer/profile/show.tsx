@@ -1,7 +1,18 @@
-import { Form } from "@inertiajs/react"
+import { Form, router } from "@inertiajs/react"
 import { type ReactNode } from "react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -122,20 +133,39 @@ function PrivacyLink() {
   )
 }
 
-function ForgetMeForm() {
+function ForgetMeDialog() {
   return (
-    <Form method="delete" action="/me/session" className="pt-4">
-      {({ processing }) => (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
         <button
-          type="submit"
-          disabled={processing}
-          className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+          type="button"
+          className="pt-4 text-left text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
           data-testid="profile-forget-me"
         >
           Esquecer este dispositivo
         </button>
-      )}
-    </Form>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Esquecer este dispositivo?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Seus cartões ficarão indisponíveis neste aparelho até você entrar
+            novamente com o seu WhatsApp.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel data-testid="profile-forget-me-cancel">
+            Cancelar
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => router.delete("/me/session")}
+            data-testid="profile-forget-me-confirm"
+          >
+            Esquecer
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
@@ -178,7 +208,7 @@ export default function CustomerProfileShow({ profile }: Props) {
       {profile.verified ? <VerifiedBanner /> : <ResendBanner />}
 
       <PrivacyLink />
-      <ForgetMeForm />
+      <ForgetMeDialog />
     </article>
   )
 }

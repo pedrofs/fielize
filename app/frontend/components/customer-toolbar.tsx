@@ -18,8 +18,9 @@ const TABS: Tab[] = [
     href: "/me",
     icon: CreditCardIcon,
     testId: "toolbar-tab-cartoes",
-    // The wallet owns "/me" and the org-branded drill-downs reached from it.
-    isActive: (path) => path === "/me" || !path.startsWith("/me/perfil"),
+    // The wallet owns "/me" and its card drill-downs ("/me/cartoes/:id") —
+    // not "/me/perfil", and not the org/merchant pages ("/o/…", "/m/…").
+    isActive: (path) => path === "/me" || path.startsWith("/me/cartoes"),
   },
   {
     label: "Perfil",
@@ -36,7 +37,12 @@ function currentPath(url: string): string {
 }
 
 export function CustomerToolbar() {
-  const path = currentPath(usePage().url)
+  const { props, url } = usePage()
+  const path = currentPath(url)
+
+  // An unidentified first-time visitor has no wallet or profile yet — a nav
+  // pointing at them would be misleading, so don't render the toolbar at all.
+  if (!props.currentCustomer) return null
 
   return (
     <nav
