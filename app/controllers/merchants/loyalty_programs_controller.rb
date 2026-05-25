@@ -94,12 +94,15 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
     }
   end
 
-  # The active dashboard's cumulative redemption funnel and most-redeemed Prize
-  # over the current era. Read-only by design (ADR-0006).
+  # The active dashboard's cumulative redemption funnel, the windowed recent-activity
+  # pulse (all 7/15/30 windows at once so the client toggle needs no reload), and the
+  # most-redeemed Prize over the current era. Read-only by design (ADR-0006).
   def serialize_metrics(loyalty)
-    top = loyalty.metrics.top_prize
+    metrics = loyalty.metrics
+    top = metrics.top_prize
     {
-      funnel: loyalty.metrics.funnel,
+      funnel: metrics.funnel,
+      recent: metrics.recent,
       top_prize: top && { id: top.id, name: top.name }
     }
   end

@@ -227,8 +227,23 @@ export type LoyaltyFunnel = {
   redeemed: number
 }
 
+// One rolling window's pulse: distinct active Customers (≥1 confirmed Stamp in
+// the window), split into novos (first in-era Stamp inside the window) vs.
+// voltando (had a prior in-era Stamp), plus the window's Stamp/Redemption counts.
+export type LoyaltyRecentWindow = {
+  active: number
+  new: number
+  returning: number
+  stamps: number
+  redemptions: number
+}
+
+// The 7/15/30-day windows precomputed server-side; the toggle is client-side.
+export type LoyaltyRecent = Record<"7" | "15" | "30", LoyaltyRecentWindow>
+
 export type LoyaltyMetrics = {
   funnel: LoyaltyFunnel
+  recent: LoyaltyRecent
   topPrize: { id: string; name: string } | null
 }
 

@@ -91,7 +91,102 @@ class LoyaltyCampaign::MetricsTest < ActiveSupport::TestCase
     assert_nil @campaign.metrics.top_prize
   end
 
+  test "#recent returns counts for the 7, 15 and 30 day windows in one call" do
+    recent = @campaign.metrics.recent
+
+    assert_equal [ 7, 15, 30 ], recent.keys
+    recent.each_value do |window|
+      assert_equal %i[active new returning stamps redemptions].sort, window.keys.sort
+    end
+  end
+
+  test "#recent is all zeros for a freshly-activated program" do
+    zero = { active: 0, new: 0, returning: 0, stamps: 0, redemptions: 0 }
+
+    assert_equal({ 7 => zero, 15 => zero, 30 => zero }, @campaign.metrics.recent)
+  end
+
+  test "#recent classifies new vs returning per window via an era-floored prior-Stamp lookback" do
+    @campaign.update!(effective_from_at: 40.days.ago)
+    returner = customer("Returner")
+    stamp_at(returner, 10.days.ago) # prior to the 7-day window, but within the era
+    stamp_at(returner, 3.days.ago)  # in-window for all three windows
+
+    recent = @campaign.metrics.recent
+
+    # 7-day window: active now, and the 10-day Stamp falls *before* the window ⇒ returning.
+    assert_equal({ active: 1, new: 0, returning: 1, stamps: 1, redemptions: 0 }, recent[7])
+    # 15/30-day windows: both Stamps land inside the window, so there is no prior
+    # in-era Stamp ⇒ new (acquisition), not returning.
+    assert_equal({ active: 1, new: 1, returning: 0, stamps: 2, redemptions: 0 }, recent[15])
+    assert_equal({ active: 1, new: 1, returning: 0, stamps: 2, redemptions: 0 }, recent[30])
+  end
+
+  test "#recent ignores prior Stamps before the era floor when classifying returning" do
+    @campaign.update!(effective_from_at: 8.days.ago)
+    reset = customer("Reset")
+    stamp_at(reset, 10.days.ago) # before the era floor ⇒ excluded entirely
+    stamp_at(reset, 3.days.ago)  # in the 7-day window
+
+    # The pre-floor Stamp doesn't count, so there is no prior in-era Stamp ⇒ new.
+    assert_equal({ active: 1, new: 1, returning: 0, stamps: 1, redemptions: 0 }, @campaign.metrics.recent[7])
+  end
+
+  test "#recent includes a Stamp landing exactly on the window's start edge" do
+    # Freeze time so the edge is exact: the window is [now − Nd, now], inclusive at
+    # the start edge, so a Stamp at exactly `now − 7d` is in-window (active), never
+    # classified as a prior (returning) Stamp.
+    freeze_time do
+      @campaign.update!(effective_from_at: 60.days.ago)
+      edge = customer("Edge")
+      stamp_at(edge, 7.days.ago)
+
+      window = @campaign.metrics.recent[7]
+
+      assert_equal 1, window[:active]
+      assert_equal 1, window[:stamps]
+      assert_equal 0, window[:returning]
+    end
+  end
+
+  test "#recent counts only in-window confirmed Stamps and Redemptions, excluding pending" do
+    counter = customer("Counter"); enroll(counter)
+    stamp_at(counter, 2.days.ago)   # in all three windows
+    stamp_at(counter, 20.days.ago)  # only in the 30-day window
+    pending_stamp(counter, 1.day.ago) # pending ⇒ never counted
+    redeem(counter, @cheap, created_at: 2.days.ago)  # in all three windows
+    redeem(counter, @cheap, created_at: 20.days.ago) # only in the 30-day window
+
+    recent = @campaign.metrics.recent
+
+    assert_equal 1, recent[7][:stamps]
+    assert_equal 1, recent[7][:redemptions]
+    assert_equal 2, recent[30][:stamps]
+    assert_equal 2, recent[30][:redemptions]
+    # The distinct Customer is counted once despite two confirmed Stamps.
+    assert_equal 1, recent[30][:active]
+  end
+
   private
+
+  # A single confirmed Stamp at a precise `created_at` (its Visit day is derived
+  # from that timestamp, keeping each Stamp on a distinct, unique day).
+  def stamp_at(customer, created_at)
+    visit = Visit.create!(customer: customer, merchant: @merchant, local_day: created_at.to_date)
+    Stamp.create!(
+      visit: visit, campaign: @campaign, customer: customer, merchant: @merchant,
+      status: "confirmed", confirmed_at: created_at, created_at: created_at
+    )
+  end
+
+  # A pending (unvalidated) Stamp — requires a code + expiry and must never count.
+  def pending_stamp(customer, created_at)
+    visit = Visit.create!(customer: customer, merchant: @merchant, local_day: created_at.to_date)
+    Stamp.create!(
+      visit: visit, campaign: @campaign, customer: customer, merchant: @merchant,
+      status: "pending", code: "PEND01", expires_at: 1.day.from_now, created_at: created_at
+    )
+  end
 
   def customer(label)
     @seq = (@seq || 0) + 1

@@ -25,6 +25,7 @@ import type {
   LoyaltyStandings,
   LoyaltyStandingRow,
   LoyaltyMetrics,
+  LoyaltyRecent,
 } from "@/types"
 
 type Props = {
@@ -149,6 +150,8 @@ export default function LoyaltyProgramShow({
       {isActive && standings && <Standings standings={standings} />}
 
       {isActive && metrics && <Metrics metrics={metrics} />}
+
+      {isActive && metrics && <RecentActivity recent={metrics.recent} />}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -486,6 +489,73 @@ function Metrics({ metrics }: { metrics: LoyaltyMetrics }) {
         </div>
       </CardContent>
     </Card>
+  )
+}
+
+// The program's recent pulse over a rolling 7/15/30-day window (default 30). All
+// three windows are precomputed server-side, so the toggle is pure client-side
+// state — no reload (PRD #51, ADR-0006: read-only). Surfaces window-active
+// Customers split into novos vs. voltando, plus Stamps and Redemptions in the
+// window. Read-only — no nudge action.
+const RECENT_WINDOWS = ["7", "15", "30"] as const
+type RecentWindowKey = (typeof RECENT_WINDOWS)[number]
+
+function RecentActivity({ recent }: { recent: LoyaltyRecent }) {
+  const [windowKey, setWindowKey] = useState<RecentWindowKey>("30")
+  const w = recent[windowKey]
+
+  return (
+    <Card data-testid="loyalty-recent">
+      <CardHeader className="flex-row items-center justify-between gap-2">
+        <CardTitle>Atividade recente</CardTitle>
+        <div
+          role="group"
+          aria-label="Período"
+          className="flex items-center rounded-lg border p-0.5 text-sm"
+        >
+          {RECENT_WINDOWS.map((key) => (
+            <button
+              key={key}
+              type="button"
+              data-active={key === windowKey}
+              aria-pressed={key === windowKey}
+              onClick={() => setWindowKey(key)}
+              className={cn(
+                "rounded-md px-2.5 py-1 font-medium tabular-nums transition-colors",
+                key === windowKey
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {key}d
+            </button>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Stat label="Clientes ativos" value={w.active} />
+          <Stat label="Novos" value={w.new} />
+          <Stat label="Voltando" value={w.returning} />
+          <Stat label="Carimbos" value={w.stamps} />
+          <Stat label="Resgates" value={w.redemptions} />
+        </div>
+        {w.active === 0 && (
+          <p className="text-sm text-muted-foreground">
+            Nenhuma atividade nos últimos {windowKey} dias.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function Stat({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex flex-col gap-0.5 rounded-lg border bg-muted/40 p-3">
+      <span className="text-2xl font-semibold tabular-nums">{value}</span>
+      <span className="text-xs text-muted-foreground">{label}</span>
+    </div>
   )
 }
 

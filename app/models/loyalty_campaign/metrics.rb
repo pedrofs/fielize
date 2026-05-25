@@ -10,8 +10,13 @@
 # block.
 #
 #   #funnel    → { enrolled:, stamped:, redeemed: } over the era.
+#   #recent    → { 7 => {...}, 15 => {...}, 30 => {...} } window pulse.
 #   #top_prize → the Prize with the most Redemptions in the era, or nil.
 class LoyaltyCampaign::Metrics
+  # Rolling windows (in days) the recent-activity block toggles between. All three
+  # are computed at once so the frontend toggle is pure client-side state.
+  WINDOWS = [ 7, 15, 30 ].freeze
+
   def initialize(campaign)
     @campaign = campaign
   end
@@ -29,6 +34,16 @@ class LoyaltyCampaign::Metrics
     { enrolled: enrolled.size, stamped: stamped.size, redeemed: redeemed.size }
   end
 
+  # The recent-activity pulse for all three windows in one pass, so the client
+  # toggle needs no reload. Each window is `{ active:, new:, returning:, stamps:,
+  # redemptions: }`. Era-scoped (ADR-0005); confirmed Stamps only (pending never
+  # count); windows overlay *within* the era — a window that opens before the era
+  # floor is clamped by it.
+  def recent
+    now = Time.current
+    WINDOWS.index_with { |days| window_counts(now - days.days) }
+  end
+
   # The Prize redeemed most in the era — the "keep or cut" signal. Nil when no
   # Redemptions have happened.
   def top_prize
@@ -37,6 +52,27 @@ class LoyaltyCampaign::Metrics
   end
 
   private
+
+  # Counts for a single rolling window opening at `window_start`. The window is
+  # the half-open era slice `[window_start, now]`: in-window uses `created_at >=
+  # window_start`, the returning lookback uses `created_at < window_start`, so the
+  # boundary is split deterministically (a Stamp exactly at the edge is in-window)
+  # and the two slices never overlap. The era floor (`> cutoff`) applies to both.
+  def window_counts(window_start)
+    in_window = era(@campaign.stamps.confirmed).where("stamps.created_at >= ?", window_start)
+    active = in_window.distinct.pluck(:customer_id).to_set
+    prior  = era(@campaign.stamps.confirmed).where("stamps.created_at < ?", window_start)
+      .distinct.pluck(:customer_id).to_set
+    returning = (active & prior).size
+
+    {
+      active: active.size,
+      new: active.size - returning,
+      returning: returning,
+      stamps: in_window.count,
+      redemptions: era(@campaign.redemptions).where("redemptions.created_at >= ?", window_start).count
+    }
+  end
 
   def enrolled_customer_ids
     era(@campaign.enrollments).distinct.pluck(:customer_id).to_set
