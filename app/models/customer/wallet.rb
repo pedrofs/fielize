@@ -26,7 +26,11 @@ class Customer::Wallet
   def cards
     @cards ||= enrollments.filter_map do |enrollment|
       campaign = enrollment.campaign
-      campaign.card_for(customer: @customer) if campaign.respond_to?(:card_for)
+      next unless campaign.respond_to?(:card_for)
+
+      card = campaign.card_for(customer: @customer)
+      card.enrollment = enrollment
+      card
     end
   end
 

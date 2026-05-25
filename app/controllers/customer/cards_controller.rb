@@ -17,6 +17,22 @@ class Customer::CardsController < Customer::BaseController
     }
   end
 
+  # The Card detail, keyed by Enrollment id and scoped to the current Customer.
+  # An enrollment that isn't this device's customer's (or no customer at all)
+  # is indistinguishable from one that doesn't exist: 404 either way.
+  def show
+    enrollment = @current_customer&.enrollments&.find_by(id: params[:id])
+    raise ActiveRecord::RecordNotFound if enrollment.nil?
+
+    card = enrollment.campaign.card_for(customer: @current_customer)
+    card.enrollment = enrollment
+    set_title card.campaign.name
+
+    render inertia: "customer/cards/show", props: {
+      card: serialize_card_detail(card)
+    }
+  end
+
   private
 
   def serialize_wallet(customer)
@@ -38,7 +54,7 @@ class Customer::CardsController < Customer::BaseController
     organization = card.organization
 
     {
-      id: campaign.id,
+      id: card.enrollment.id,
       state: card.state,
       section: card.section,
       campaign_name: campaign.name,
@@ -46,8 +62,37 @@ class Customer::CardsController < Customer::BaseController
         name: organization.name,
         image_url: organization.image_url
       },
-      url: customer_organization_campaign_path(organization.slug, campaign.slug),
+      url: customer_card_path(card.enrollment.id),
       progress: card.progress
+    }
+  end
+
+  # The detail payload extends the wallet card shape (state + progress, so the
+  # same render is reused) with the campaign's prizes, participating merchants,
+  # terms, and a link out to the org-branded campaign page.
+  def serialize_card_detail(card)
+    campaign     = card.campaign
+    organization = card.organization
+    loyalty      = campaign.is_a?(LoyaltyCampaign)
+    merchants    = loyalty ? Array(campaign.merchant) : campaign.merchants.order(:name).to_a
+    terms        = campaign.terms.body.presence || organization.terms.body
+
+    {
+      id: card.enrollment.id,
+      state: card.state,
+      section: card.section,
+      kind: loyalty ? "loyalty" : "organization",
+      campaign_name: campaign.name,
+      organization: {
+        name: organization.name,
+        image_url: organization.image_url,
+        slug: organization.slug
+      },
+      progress: card.progress,
+      prizes: campaign.prizes.order(:position).map { |p| { id: p.id, name: p.name, threshold: p.threshold } },
+      merchants: merchants.map { |m| { id: m.id, name: m.name, address: m.address } },
+      terms_html: terms&.to_html,
+      campaign_url: customer_organization_campaign_path(organization.slug, campaign.slug)
     }
   end
 end

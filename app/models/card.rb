@@ -22,6 +22,12 @@ class Card
 
   attr_reader :campaign, :customer, :state, :progress
 
+  # The Enrollment this Card belongs to. Set by whoever builds the Card in a
+  # Wallet context (`Customer::Wallet`); it's the stable key the detail screen
+  # at `/me/cartoes/:id` is addressed by. Nil when a Card is built outside a
+  # wallet (e.g. a campaign building a one-off Card for itself).
+  attr_accessor :enrollment
+
   def initialize(campaign:, customer:, state:, progress:)
     @campaign = campaign
     @customer = customer

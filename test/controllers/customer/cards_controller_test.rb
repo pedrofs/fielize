@@ -23,6 +23,40 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "show responds 200 for the current customer's own enrollment" do
+    sign_in_via_enrollment
+    enrollment = Customer.find_by(phone: "+5553999990000").enrollments.first
+
+    get customer_card_path(enrollment.id)
+    assert_response :success
+  end
+
+  test "show responds 404 for another customer's enrollment" do
+    sign_in_via_enrollment
+    other = customers(:maria).enrollments.create!(
+      campaign: campaigns(:pasaporte), consented_at: Time.current
+    )
+
+    get customer_card_path(other.id)
+    assert_response :not_found
+  end
+
+  test "show responds 404 for a visitor without a cookie" do
+    enrollment = customers(:maria).enrollments.create!(
+      campaign: campaigns(:pasaporte), consented_at: Time.current
+    )
+
+    get customer_card_path(enrollment.id)
+    assert_response :not_found
+  end
+
+  test "show responds 404 for an unknown enrollment id" do
+    sign_in_via_enrollment
+
+    get customer_card_path(SecureRandom.uuid)
+    assert_response :not_found
+  end
+
   private
 
   def sign_in_via_enrollment

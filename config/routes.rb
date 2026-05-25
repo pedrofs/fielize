@@ -21,6 +21,7 @@ Rails.application.routes.draw do
     post "/verification_requests", to: "verification_requests#create", as: :verification_requests
 
     get    "/me",                       to: "cards#index",                            as: :wallet
+    get    "/me/cartoes/:id",           to: "cards#show",                             as: :card
     get    "/me/perfil",                to: "profile#show",                           as: :profile
     patch  "/me/perfil",                to: "profile#update"
     delete "/me/session",               to: "sessions#destroy",                       as: :session
