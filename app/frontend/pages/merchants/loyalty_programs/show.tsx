@@ -1,10 +1,11 @@
 import { useState, type ReactNode, type FormEvent } from "react"
 import { Link, router, useForm } from "@inertiajs/react"
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { AppLayout } from "@/layouts/app-layout"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -86,11 +87,6 @@ export default function LoyaltyProgramShow({
           )}
         </CardHeader>
         <CardContent>
-          {isDraft && prizes.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Adicione ao menos 1 prêmio para ativar.
-            </p>
-          )}
           {isEnded && (
             <p className="text-sm text-muted-foreground">
               Programa desativado. Para reativar, crie um novo programa.
@@ -116,6 +112,23 @@ export default function LoyaltyProgramShow({
                 </h3>
               </header>
               <CardBody card={previewCard} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {isDraft && (
+        <Card data-testid="loyalty-setup">
+          <CardHeader>
+            <CardTitle>Para colocar no ar</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-5">
+            <SetupChecklist hasPrize={prizes.length > 0} isActive={isActive} />
+            <div
+              className="rounded-lg border bg-muted/40 p-3"
+              data-testid="loyalty-worked-example"
+            >
+              <WorkedExample prizes={prizes} />
             </div>
           </CardContent>
         </Card>
@@ -226,6 +239,88 @@ export default function LoyaltyProgramShow({
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// The path to "live": ① add a Prize, ② activate. Each step shows its done state
+// so a merchant always knows what's left. Rides the existing status/prizes props.
+function SetupChecklist({
+  hasPrize,
+  isActive,
+}: {
+  hasPrize: boolean
+  isActive: boolean
+}) {
+  const steps = [
+    {
+      label: "Adicionar prêmio",
+      hint: "Crie ao menos um prêmio para seus clientes resgatarem.",
+      done: hasPrize,
+    },
+    {
+      label: "Ativar programa",
+      hint: "Coloque o cartão no ar para começar a acumular carimbos.",
+      done: isActive,
+    },
+  ]
+
+  return (
+    <ol className="flex flex-col gap-3" data-testid="loyalty-setup-checklist">
+      {steps.map((step, index) => (
+        <li key={step.label} className="flex items-start gap-3">
+          <span
+            data-done={step.done}
+            className={cn(
+              "flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+              step.done
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground",
+            )}
+          >
+            {step.done ? <CheckIcon className="size-3.5" /> : index + 1}
+          </span>
+          <div className="flex flex-col">
+            <span
+              className={cn(
+                "text-sm font-medium",
+                step.done && "text-muted-foreground",
+              )}
+            >
+              {step.label}
+            </span>
+            <span className="text-xs text-muted-foreground">{step.hint}</span>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+// Turns the abstract threshold into a concrete expectation, derived from the
+// cheapest Prize (the first reward a Customer reaches). Degrades to a hint when
+// there are no Prizes yet — never NaN.
+function WorkedExample({ prizes }: { prizes: LoyaltyPrize[] }) {
+  if (prizes.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Adicione um prêmio para ver um exemplo de como o cartão funciona para o
+        seu cliente.
+      </p>
+    )
+  }
+
+  const cheapest = prizes.reduce((lowest, prize) =>
+    prize.threshold < lowest.threshold ? prize : lowest,
+  )
+
+  return (
+    <p className="text-sm">
+      A cada{" "}
+      <strong>
+        {cheapest.threshold} carimbo{cheapest.threshold === 1 ? "" : "s"}
+      </strong>
+      , seu cliente resgata <strong>{cheapest.name}</strong>.
+    </p>
   )
 }
 
