@@ -23,6 +23,15 @@ class LoyaltyCampaignTest < ActiveSupport::TestCase
     assert_includes campaign.errors[:entry_policy], "must be blank for LoyaltyCampaign"
   end
 
+  test "next_threshold_above returns the cheapest unreached prize, nil when all reached" do
+    loyalty = campaigns(:cartao_calzados) # single prize, threshold 5
+
+    assert_equal 5, loyalty.next_threshold_above(0)
+    assert_equal 5, loyalty.next_threshold_above(4)
+    assert_nil   loyalty.next_threshold_above(5)
+    assert_nil   loyalty.next_threshold_above(9)
+  end
+
   test "balance_for: confirmed stamps minus redemptions snapshots" do
     campaign = campaigns(:cartao_calzados)
     customer = customers(:maria)

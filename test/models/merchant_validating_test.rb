@@ -77,6 +77,50 @@ class MerchantValidatingTest < ActiveSupport::TestCase
     refute_includes lines.map { |l| l[:id] }, ended.id
   end
 
+  # ---- landing_progress_for (states 4/5, no Visit required) ----
+
+  test "landing_progress_for surfaces count and next goal per matching campaign" do
+    matching = @merchant.active_campaigns_now
+    lines = @merchant.landing_progress_for(customer: @customer, campaigns: matching)
+    by_id = lines.index_by { |l| l[:id] }
+
+    loyalty = by_id[campaigns(:cartao_calzados).id]
+    assert_equal "loyalty", loyalty[:kind]
+    assert_equal 0, loyalty[:count]
+    assert_equal 5, loyalty[:goal]
+
+    org = by_id[campaigns(:pasaporte).id]
+    assert_equal "organization", org[:kind]
+    assert_equal "cumulative",   org[:entry_policy]
+    assert_equal 0, org[:count]
+    assert_equal 6, org[:goal]
+  end
+
+  test "landing_progress_for advances the count as the Customer earns confirmed stamps" do
+    create_confirmed_stamp(visit: @visit, campaign: campaigns(:cartao_calzados))
+
+    lines = @merchant.landing_progress_for(
+      customer: @customer, campaigns: [ campaigns(:cartao_calzados) ]
+    )
+
+    assert_equal 1, lines.first[:count]
+    assert_equal 5, lines.first[:goal]
+  end
+
+  test "landing_progress_for skips non-active campaigns" do
+    ended = OrganizationCampaign.create!(
+      organization: organizations(:one), name: "Old", slug: "old-landing",
+      starts_at: 2.months.ago, ends_at: 1.month.ago, entry_policy: "cumulative",
+      status: "ended"
+    )
+
+    lines = @merchant.landing_progress_for(
+      customer: @customer, campaigns: [ ended, campaigns(:cartao_calzados) ]
+    )
+
+    refute_includes lines.map { |l| l[:id] }, ended.id
+  end
+
   private
 
   def create_pending_stamp(visit:, campaign:, code:, merchant: @merchant, expires_at: 10.minutes.from_now)

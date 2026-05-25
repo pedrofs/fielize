@@ -57,6 +57,29 @@ class Customer::MerchantsControllerTest < ActionDispatch::IntegrationTest
     end
   end
 
+  test "state 4 — surfaces per-campaign progress with the next goal above the CTA" do
+    sign_in_as_customer(@customer)
+    @org_campaign.enroll!(customer: @customer)
+    @loyalty.enroll!(customer: @customer)
+
+    get "/m/#{@merchant.slug}"
+    assert_response :success
+    assert_inertia_props page_state: 4
+    assert_inertia_props do |props|
+      by_id = props[:progress].index_by { |p| p[:id] }
+
+      loyalty = by_id[@loyalty.id]
+      assert_equal "loyalty", loyalty[:kind]
+      assert_equal 0, loyalty[:count]
+      assert_equal 5, loyalty[:goal]
+
+      org = by_id[@org_campaign.id]
+      assert_equal "organization", org[:kind]
+      assert_equal 0, org[:count]
+      assert_equal 6, org[:goal]
+    end
+  end
+
   test "state 5 — identified Customer with no Visit and some unenrolled campaigns" do
     sign_in_as_customer(@customer)
     @org_campaign.enroll!(customer: @customer) # loyalty stays unenrolled
@@ -68,6 +91,20 @@ class Customer::MerchantsControllerTest < ActionDispatch::IntegrationTest
       by_id = props[:campaigns].index_by { |c| c[:id] }
       assert_equal true, by_id[@org_campaign.id][:enrolled]
       assert_equal false, by_id[@loyalty.id][:enrolled]
+    end
+  end
+
+  test "state 5 — surfaces zero-progress (comece agora) for unenrolled matching campaigns" do
+    sign_in_as_customer(@customer)
+    @org_campaign.enroll!(customer: @customer) # loyalty stays unenrolled
+
+    get "/m/#{@merchant.slug}"
+    assert_response :success
+    assert_inertia_props page_state: 5
+    assert_inertia_props do |props|
+      loyalty = props[:progress].find { |p| p[:id] == @loyalty.id }
+      assert_equal 0, loyalty[:count]  # unenrolled → still surfaced with zero progress
+      assert_equal 5, loyalty[:goal]
     end
   end
 

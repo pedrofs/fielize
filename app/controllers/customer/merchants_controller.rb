@@ -20,7 +20,7 @@ class Customer::MerchantsController < Customer::BaseController
       page_state: page_state(today_visit, matching_campaigns),
       campaigns: serialize_campaigns(matching_campaigns),
       visit: today_visit ? serialize_visit(today_visit) : nil,
-      progress: today_visit ? @merchant.campaign_progress_for(customer: @current_customer, visit: today_visit) : []
+      progress: @current_customer ? @merchant.landing_progress_for(customer: @current_customer, campaigns: matching_campaigns) : []
     }
   end
 

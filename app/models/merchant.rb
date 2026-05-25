@@ -49,7 +49,37 @@ class Merchant < ApplicationRecord
          .filter_map { |c| progress_line_for(c, customer) }
   end
 
+  # Progress lines for the customer-facing landing (page-states 4/5), computed
+  # straight from the matching active campaigns — no Visit needed — so the
+  # customer sees how close they are *before* claiming. Each line carries a
+  # `count` and the next `goal` threshold (nil once every prize is reachable),
+  # letting the page frame "X de Y · faltam N" and a "comece agora" zero-state.
+  def landing_progress_for(customer:, campaigns:)
+    campaigns.select { |c| c.status == "active" }
+             .filter_map { |c| landing_progress_line_for(c, customer) }
+  end
+
   private
+
+  def landing_progress_line_for(campaign, customer)
+    case campaign
+    when LoyaltyCampaign
+      balance = campaign.balance_for(customer)
+      { kind: "loyalty", id: campaign.id, name: campaign.name,
+        count: balance, goal: campaign.next_threshold_above(balance) }
+    when OrganizationCampaign
+      if campaign.cumulative?
+        reached = campaign.merchants_stamped_by(customer).size
+        { kind: "organization", entry_policy: "cumulative",
+          id: campaign.id, name: campaign.name,
+          count: reached, goal: campaign.next_threshold_above(reached) }
+      else
+        { kind: "organization", entry_policy: "simple",
+          id: campaign.id, name: campaign.name,
+          count: campaign.entries_for(customer), goal: nil }
+      end
+    end
+  end
 
   def progress_line_for(campaign, customer)
     case campaign

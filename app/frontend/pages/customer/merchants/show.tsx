@@ -57,9 +57,15 @@ type Visit = {
   stamps: VisitStamp[]
 }
 
-type ProgressLine =
-  | { kind: "loyalty"; id: string; name: string; balance: number }
-  | { kind: "organization"; id: string; name: string; entries: number; entryPolicy: "simple" | "cumulative" }
+type ProgressLine = {
+  id: string
+  name: string
+  count: number
+  goal: number | null
+} & (
+  | { kind: "loyalty" }
+  | { kind: "organization"; entryPolicy: "simple" | "cumulative" }
+)
 
 type Props = {
   merchant: Merchant
@@ -308,6 +314,89 @@ function PendingCodeCard({ visit }: { visit: Visit }) {
   )
 }
 
+// The unit noun for a progress line: selos (loyalty), lojas (cumulative
+// org-campaign — distinct merchants stamped), or entradas (simple raffle).
+function progressUnit(line: ProgressLine): { one: string; many: string } {
+  if (line.kind === "loyalty") return { one: "selo", many: "selos" }
+  if (line.entryPolicy === "cumulative") return { one: "loja", many: "lojas" }
+  return { one: "entrada", many: "entradas" }
+}
+
+function plural(n: number, unit: { one: string; many: string }): string {
+  return `${n} ${n === 1 ? unit.one : unit.many}`
+}
+
+// Reason-to-act copy for a single line. Zero progress gets a forward-looking
+// "comece agora" framing; otherwise "X de Y · faltam N" toward the next goal,
+// or a plain tally once every prize is already within reach.
+function progressPhrase(line: ProgressLine): string {
+  const unit = progressUnit(line)
+
+  if (line.count === 0) {
+    if (line.kind === "loyalty") {
+      return line.goal != null ? `Junte ${plural(line.goal, unit)} pro prêmio` : "Comece a juntar selos"
+    }
+    if (line.entryPolicy === "cumulative") {
+      return line.goal != null ? `Visite ${plural(line.goal, unit)} pro prêmio` : "Comece a visitar lojas"
+    }
+    return "Garanta sua primeira entrada no sorteio"
+  }
+
+  if (line.goal != null) {
+    return `${line.count} de ${line.goal} ${unit.many} · faltam ${plural(line.goal - line.count, unit)}`
+  }
+
+  if (line.kind === "loyalty") return `${plural(line.count, unit)} · prêmio disponível`
+  if (line.entryPolicy === "cumulative") return `${plural(line.count, unit)} · prêmios disponíveis`
+  return `${plural(line.count, unit)} no sorteio`
+}
+
+function ProgressBar({ count, goal }: { count: number; goal: number }) {
+  const pct = Math.min(100, Math.round((count / goal) * 100))
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-reward/15" aria-hidden>
+      <div
+        className="h-full rounded-full bg-reward transition-[width] duration-300"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  )
+}
+
+// "Progress before action" block for states 4/5: surfaces how close the
+// customer already is at this merchant — above the claim CTA — so the reason
+// to act is visible first. Zero-progress lines read "Comece agora" instead of
+// rendering an empty/discouraging block.
+function MerchantProgress({ progress }: { progress: ProgressLine[] }) {
+  if (progress.length === 0) return null
+  return (
+    <section
+      className="flex flex-col gap-3 rounded-2xl border border-reward/30 bg-reward/5 p-4"
+      data-testid="merchant-progress"
+    >
+      <h2 className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        Seu progresso aqui
+      </h2>
+      <ul className="flex flex-col gap-4">
+        {progress.map((line) => (
+          <li key={line.id} className="flex flex-col gap-1.5">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-medium">{line.name}</span>
+              {line.count === 0 && (
+                <span className="text-xs font-semibold uppercase tracking-wide text-reward">
+                  Comece agora
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">{progressPhrase(line)}</p>
+            {line.goal != null && <ProgressBar count={line.count} goal={line.goal} />}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 function ProgressList({ progress }: { progress: ProgressLine[] }) {
   if (progress.length === 0) return null
   return (
@@ -315,11 +404,7 @@ function ProgressList({ progress }: { progress: ProgressLine[] }) {
       {progress.map((p) => (
         <li key={p.id} className="flex items-center justify-between gap-3 py-2">
           <span className="font-medium">{p.name}</span>
-          <span className="font-semibold tabular-nums">
-            {p.kind === "loyalty"
-              ? `${p.balance} selo${p.balance === 1 ? "" : "s"}`
-              : `${p.entries} entrada${p.entries === 1 ? "" : "s"}`}
-          </span>
+          <span className="font-semibold tabular-nums">{plural(p.count, progressUnit(p))}</span>
         </li>
       ))}
     </ul>
@@ -452,6 +537,7 @@ export default function CustomerMerchantShow({
 
       {pageState === 4 && (
         <>
+          <MerchantProgress progress={progress} />
           <section className="flex flex-col gap-2" data-testid="merchant-enrolled-summary">
             <p className="text-sm text-muted-foreground">Você está inscrito em:</p>
             <ul className="flex flex-col divide-y rounded-lg border bg-card">
@@ -466,6 +552,7 @@ export default function CustomerMerchantShow({
 
       {pageState === 5 && (
         <>
+          <MerchantProgress progress={progress} />
           <CampaignList campaigns={campaigns} grouped={grouped} />
           {currentCustomer && <ClaimButton merchantSlug={merchant.slug} />}
         </>

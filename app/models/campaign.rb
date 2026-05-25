@@ -56,6 +56,14 @@ class Campaign < ApplicationRecord
     enrollment
   end
 
+  # Cheapest Prize threshold strictly above `amount`, or nil when every Prize is
+  # already within reach. The building block for the "faltam N pro prêmio"
+  # framing on the customer landing — `amount` is selos for a LoyaltyCampaign
+  # and distinct merchants for a cumulative OrganizationCampaign.
+  def next_threshold_above(amount)
+    prizes.where("threshold > ?", amount).minimum(:threshold)
+  end
+
   # No `activate!` / `end!` on the base. The OrganizationCampaign lifecycle
   # (draft → active → ended) lives in OrganizationCampaign::Activatable.
   # LoyaltyCampaign uses its own #disable!(reset:) terminator.

@@ -32,6 +32,32 @@ class Customer::MerchantLandingTest < ApplicationSystemTestCase
     assert_no_selector "[data-testid='merchant-claim-cta']"
   end
 
+  test "state 5 surfaces the customer's progress at this merchant before the claim CTA" do
+    merchant = merchants(:one)
+
+    # Enroll in the org campaign (sets the customer cookie) without claiming a
+    # Visit, so revisiting the merchant lands in state 5 — loyalty still unenrolled.
+    visit "/o/cdl-jaguarao/c/pasaporte-2026"
+    fill_in "Nome", with: "Bea"
+    fill_in "WhatsApp", with: "(53) 92020-3030"
+    find("[data-testid='enroll-cta']").click
+    assert_selector "[data-testid='enrolled-state']", wait: 5
+
+    visit "/m/#{merchant.slug}"
+    assert_selector "[data-testid='merchant-page-state-5']", wait: 5
+
+    # A brand-new customer has zero progress → the "Comece agora" framing
+    # (rendered uppercase by CSS) with a forward-looking goal hint, rather than
+    # an empty block.
+    progress = find("[data-testid='merchant-progress']")
+    assert progress.text.include?("COMECE AGORA")
+    assert progress.text.include?("pro prêmio")
+
+    # The claim CTA lives in a form that is a later sibling of the progress
+    # block — i.e. progress renders before the CTA.
+    assert_selector "[data-testid='merchant-progress'] ~ form [data-testid='merchant-claim-cta']"
+  end
+
   test "a name error renders under the name field, not the phone field" do
     merchant = merchants(:one)
 
