@@ -12,8 +12,10 @@ class Customer::CardsController < Customer::BaseController
   def index
     set_title "Meus cartões"
 
+    # Deferred so /me paints its shell immediately and the React page can show a
+    # wallet skeleton while the (cross-org, N-enrollment) aggregation loads.
     render inertia: "customer/cards/index", props: {
-      wallet: serialize_wallet(@current_customer)
+      wallet: InertiaRails.defer { serialize_wallet(@current_customer) }
     }
   end
 
@@ -24,16 +26,23 @@ class Customer::CardsController < Customer::BaseController
     enrollment = @current_customer&.enrollments&.find_by(id: params[:id])
     raise ActiveRecord::RecordNotFound if enrollment.nil?
 
-    card = enrollment.campaign.card_for(customer: @current_customer)
-    card.enrollment = enrollment
-    set_title card.campaign.name
+    set_title enrollment.campaign.name
 
+    # The 404 and title resolve on the initial request (cheap), but the card's
+    # progress math + prizes/merchants/terms load is deferred so the detail
+    # screen can paint a skeleton while it resolves.
     render inertia: "customer/cards/show", props: {
-      card: serialize_card_detail(card)
+      card: InertiaRails.defer { serialize_card_detail(card_for(enrollment)) }
     }
   end
 
   private
+
+  def card_for(enrollment)
+    card = enrollment.campaign.card_for(customer: @current_customer)
+    card.enrollment = enrollment
+    card
+  end
 
   def serialize_wallet(customer)
     return { recognized: false, sections: empty_sections } unless customer

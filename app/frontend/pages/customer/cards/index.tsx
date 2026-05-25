@@ -1,10 +1,11 @@
-import { useForm } from "@inertiajs/react"
+import { Deferred, useForm } from "@inertiajs/react"
 import { ChevronDownIcon, ChevronUpIcon, SparklesIcon } from "lucide-react"
 import { useState, type FormEvent, type ReactNode } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Skeleton } from "@/components/ui/skeleton"
 import { WalletCard, type WalletCardData } from "@/components/wallet-card"
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { formatBrazilianPhone, isPlausibleBrazilianPhone } from "@/lib/phone"
@@ -22,8 +23,10 @@ type Wallet = {
   sections: Sections
 }
 
+// `wallet` is deferred (see Customer::CardsController#index): it is absent on the
+// initial paint and arrives via a follow-up request, during which the skeleton shows.
 type Props = {
-  wallet: Wallet
+  wallet?: Wallet
 }
 
 function Section({
@@ -172,7 +175,41 @@ function Placeholder() {
   )
 }
 
-export default function CustomerCardsIndex({ wallet }: Props) {
+// A stamp-card placeholder shaped like a WalletCard (header row + body + caption)
+// so the skeleton occupies the same footprint and the real cards don't shift in.
+function WalletCardSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-4 w-40" />
+        </div>
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-3 w-32" />
+    </div>
+  )
+}
+
+function WalletSkeleton() {
+  return (
+    <article className="flex flex-col gap-6 py-6" data-testid="wallet-skeleton">
+      <header className="flex flex-col gap-2">
+        <Skeleton className="h-7 w-44" />
+        <Skeleton className="h-4 w-64" />
+      </header>
+      <div className="flex flex-col gap-3">
+        <Skeleton className="h-4 w-28" />
+        <WalletCardSkeleton />
+        <WalletCardSkeleton />
+      </div>
+    </article>
+  )
+}
+
+function WalletContent({ wallet }: { wallet: Wallet }) {
   const { paraResgatar, ativas, encerradas } = wallet.sections
   const isEmpty =
     paraResgatar.length === 0 &&
@@ -206,6 +243,14 @@ export default function CustomerCardsIndex({ wallet }: Props) {
         />
       </div>
     </article>
+  )
+}
+
+export default function CustomerCardsIndex({ wallet }: Props) {
+  return (
+    <Deferred data="wallet" fallback={<WalletSkeleton />}>
+      <WalletContent wallet={wallet!} />
+    </Deferred>
   )
 }
 

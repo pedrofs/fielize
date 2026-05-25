@@ -16,6 +16,14 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
   end
 
+  test "index defers the wallet prop so the page can show a skeleton" do
+    sign_in_via_enrollment
+
+    get "/me"
+    assert_response :success
+    assert_inertia_deferred_props :wallet
+  end
+
   test "index responds 200 even when the cookie references a deleted Customer" do
     sign_in_via_enrollment
     Customer.find_by(phone: "+5553999990000")&.destroy
@@ -30,6 +38,15 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
 
     get customer_card_path(enrollment.id)
     assert_response :success
+  end
+
+  test "show defers the card prop so the detail can show a skeleton" do
+    sign_in_via_enrollment
+    enrollment = Customer.find_by(phone: "+5553999990000").enrollments.first
+
+    get customer_card_path(enrollment.id)
+    assert_response :success
+    assert_inertia_deferred_props :card
   end
 
   test "show responds 404 for another customer's enrollment" do
@@ -65,6 +82,7 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
 
     get customer_card_path(enrollment.id)
     assert_response :success
+    inertia_load_deferred_props
     assert_inertia_props do |props|
       assert_equal "/m/calzados-ricardo", props[:card][:merchant_url]
     end
@@ -76,6 +94,7 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
 
     get customer_card_path(enrollment.id)
     assert_response :success
+    inertia_load_deferred_props
     assert_inertia_props do |props|
       assert_equal "/m/calzados-ricardo", props[:card][:merchant_url]
     end
@@ -91,6 +110,7 @@ class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
 
     get customer_card_path(enrollment.id)
     assert_response :success
+    inertia_load_deferred_props
     assert_inertia_props do |props|
       assert_nil props[:card][:merchant_url]
     end

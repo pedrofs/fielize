@@ -1,7 +1,8 @@
-import { Link } from "@inertiajs/react"
+import { Deferred, Link } from "@inertiajs/react"
 import { ArrowLeftIcon, ArrowRightIcon, StoreIcon } from "lucide-react"
 import { type ReactNode } from "react"
 
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   HeroProgress,
   OrgLabel,
@@ -38,8 +39,11 @@ type CardDetail = {
   merchantUrl: string | null
 }
 
+// `card` is deferred (see Customer::CardsController#show): absent on the initial
+// paint and loaded via a follow-up request, during which the skeleton shows. The
+// back-link and page chrome render immediately; only the card body waits.
 type Props = {
-  card: CardDetail
+  card?: CardDetail
 }
 
 // Per ADR 0004 the app never transacts a redemption — these are purely
@@ -64,18 +68,32 @@ function RedemptionInstructions({ card }: { card: CardDetail }) {
   )
 }
 
-export default function CustomerCardShow({ card }: Props) {
+function CardDetailSkeleton() {
   return (
-    <article className="flex flex-col gap-6 py-6">
-      <Link
-        href="/me"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        data-testid="back-to-wallet"
-      >
-        <ArrowLeftIcon className="size-4" />
-        Meus cartões
-      </Link>
+    <div
+      className="flex flex-col gap-6"
+      data-testid="card-detail-skeleton"
+      aria-hidden
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-7 w-48" />
+        </div>
+        <Skeleton className="h-6 w-20 rounded-full" />
+      </div>
+      <Skeleton className="h-44 w-full rounded-2xl" />
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-16 w-full rounded-lg" />
+      </div>
+    </div>
+  )
+}
 
+function CardContent({ card }: { card: CardDetail }) {
+  return (
+    <>
       <header className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-1">
@@ -159,6 +177,25 @@ export default function CustomerCardShow({ card }: Props) {
           dangerouslySetInnerHTML={{ __html: card.termsHtml }}
         />
       )}
+    </>
+  )
+}
+
+export default function CustomerCardShow({ card }: Props) {
+  return (
+    <article className="flex flex-col gap-6 py-6">
+      <Link
+        href="/me"
+        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        data-testid="back-to-wallet"
+      >
+        <ArrowLeftIcon className="size-4" />
+        Meus cartões
+      </Link>
+
+      <Deferred data="card" fallback={<CardDetailSkeleton />}>
+        <CardContent card={card!} />
+      </Deferred>
     </article>
   )
 }
