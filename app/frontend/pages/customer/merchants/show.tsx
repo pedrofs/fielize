@@ -1,10 +1,13 @@
 import { router, useForm, usePage } from "@inertiajs/react"
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react"
 
+import { motion, useReducedMotion } from "motion/react"
+
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Confetti, StampThunk, Pressable } from "@/components/celebrate"
 
 type Organization = {
   id: string
@@ -157,15 +160,17 @@ function ClaimButton({ merchantSlug }: { merchantSlug: string }) {
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-2">
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={processing}
-        data-testid="merchant-claim-cta"
-      >
-        Ganhar selo
-      </Button>
+      <Pressable className="w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={processing}
+          data-testid="merchant-claim-cta"
+        >
+          Ganhar selo
+        </Button>
+      </Pressable>
       <p className="text-xs text-muted-foreground">
         Ao clicar você concorda com os termos de privacidade (LGPD).
       </p>
@@ -240,15 +245,17 @@ function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
         )}
       </div>
 
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={processing}
-        data-testid="merchant-claim-cta"
-      >
-        Ganhar selo
-      </Button>
+      <Pressable className="w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={processing}
+          data-testid="merchant-claim-cta"
+        >
+          Ganhar selo
+        </Button>
+      </Pressable>
 
       <p className="text-xs text-muted-foreground">
         Ao clicar você concorda com os termos de privacidade (LGPD).
@@ -283,20 +290,26 @@ function PendingCodeCard({ visit }: { visit: Visit }) {
 }
 
 function ConfirmedCard({ progress }: { progress: ProgressLine[] }) {
+  const reduced = useReducedMotion()
   return (
-    <section
-      className="flex flex-col gap-4 rounded-lg border bg-emerald-50 p-6 text-emerald-900"
+    <motion.section
+      className="relative flex flex-col items-center gap-4 overflow-hidden rounded-2xl border border-reward/40 bg-reward/15 p-6 text-center"
       data-testid="merchant-confirmed-card"
+      initial={reduced ? false : { opacity: 0, y: 12, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ type: "spring", stiffness: 320, damping: 26 }}
     >
-      <p className="text-base font-semibold">
-        ✓ Você já ganhou seu selo aqui hoje. Volte amanhã!
+      <Confetti />
+      <StampThunk className="size-16" />
+      <p className="text-lg font-semibold">
+        Selo confirmado! Volte amanhã para ganhar mais.
       </p>
       {progress.length > 0 && (
-        <ul className="flex flex-col divide-y divide-emerald-200 border-t border-emerald-200 pt-3 text-sm">
+        <ul className="flex w-full flex-col divide-y divide-reward/30 border-t border-reward/30 pt-3 text-sm">
           {progress.map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-3 py-2">
               <span className="font-medium">{p.name}</span>
-              <span>
+              <span className="font-semibold tabular-nums">
                 {p.kind === "loyalty"
                   ? `${p.balance} selo${p.balance === 1 ? "" : "s"}`
                   : `${p.entries} entrada${p.entries === 1 ? "" : "s"}`}
@@ -312,7 +325,7 @@ function ConfirmedCard({ progress }: { progress: ProgressLine[] }) {
       >
         Ver minhas inscrições
       </a>
-    </section>
+    </motion.section>
   )
 }
 

@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
+@import "@fontsource-variable/bricolage-grotesque";
 @import "leaflet/dist/leaflet.css";
 
 @custom-variant dark (&:is(.dark *));
@@ -10,8 +11,12 @@
 @plugin '@tailwindcss/forms';
 
 @theme inline {
-    --font-heading: var(--font-sans);
+    --font-heading: 'Bricolage Grotesque Variable', 'Inter Variable', sans-serif;
     --font-sans: 'Inter Variable', sans-serif;
+    --color-reward: var(--reward);
+    --color-reward-foreground: var(--reward-foreground);
+    --color-celebration: var(--celebration);
+    --color-celebration-foreground: var(--celebration-foreground);
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -53,72 +58,84 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
+    /* Warm-tinted neutrals (a hair of violet) so the UI reads less clinical */
+    --background: oklch(0.992 0.003 95);
+    --foreground: oklch(0.22 0.02 285);
+    --card: oklch(1 0.002 95);
+    --card-foreground: oklch(0.22 0.02 285);
+    --popover: oklch(1 0.002 95);
+    --popover-foreground: oklch(0.22 0.02 285);
+    /* Brand primary — "Roxo": indigo-violet (Fielize chrome; org colors override on customer surfaces) */
+    --primary: oklch(0.52 0.2 285);
+    --primary-foreground: oklch(0.985 0.01 285);
+    --secondary: oklch(0.96 0.008 285);
+    --secondary-foreground: oklch(0.32 0.05 285);
+    --muted: oklch(0.965 0.006 285);
+    --muted-foreground: oklch(0.52 0.025 285);
+    --accent: oklch(0.95 0.025 285);
+    --accent-foreground: oklch(0.35 0.07 285);
     --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
+    --border: oklch(0.915 0.008 285);
+    --input: oklch(0.915 0.008 285);
+    --ring: oklch(0.52 0.2 285);
+    /* Reward — "Selo Gold" and Celebration — "Festa Coral": Fielize constants, never org-themed */
+    --reward: oklch(0.8 0.15 83);
+    --reward-foreground: oklch(0.3 0.06 70);
+    --celebration: oklch(0.62 0.21 23);
+    --celebration-foreground: oklch(0.99 0.012 23);
+    /* Charts use the brand triad so dashboards feel on-brand */
+    --chart-1: oklch(0.52 0.2 285);
+    --chart-2: oklch(0.8 0.15 83);
+    --chart-3: oklch(0.62 0.21 23);
+    --chart-4: oklch(0.62 0.13 200);
+    --chart-5: oklch(0.42 0.09 285);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    --sidebar: oklch(0.985 0.005 285);
+    --sidebar-foreground: oklch(0.22 0.02 285);
+    --sidebar-primary: oklch(0.52 0.2 285);
+    --sidebar-primary-foreground: oklch(0.985 0.01 285);
+    --sidebar-accent: oklch(0.95 0.025 285);
+    --sidebar-accent-foreground: oklch(0.35 0.07 285);
+    --sidebar-border: oklch(0.915 0.008 285);
+    --sidebar-ring: oklch(0.52 0.2 285);
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.922 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
+    --background: oklch(0.17 0.015 285);
+    --foreground: oklch(0.97 0.008 285);
+    --card: oklch(0.215 0.018 285);
+    --card-foreground: oklch(0.97 0.008 285);
+    --popover: oklch(0.215 0.018 285);
+    --popover-foreground: oklch(0.97 0.008 285);
+    --primary: oklch(0.68 0.17 287);
+    --primary-foreground: oklch(0.17 0.02 285);
+    --secondary: oklch(0.28 0.02 285);
+    --secondary-foreground: oklch(0.97 0.008 285);
+    --muted: oklch(0.28 0.02 285);
+    --muted-foreground: oklch(0.72 0.02 285);
+    --accent: oklch(0.32 0.04 285);
+    --accent-foreground: oklch(0.97 0.008 285);
     --destructive: oklch(0.704 0.191 22.216);
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.87 0 0);
-    --chart-2: oklch(0.556 0 0);
-    --chart-3: oklch(0.439 0 0);
-    --chart-4: oklch(0.371 0 0);
-    --chart-5: oklch(0.269 0 0);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.488 0.243 264.376);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.68 0.17 287);
+    --reward: oklch(0.82 0.15 83);
+    --reward-foreground: oklch(0.28 0.06 70);
+    --celebration: oklch(0.66 0.2 23);
+    --celebration-foreground: oklch(0.99 0.012 23);
+    --chart-1: oklch(0.68 0.17 287);
+    --chart-2: oklch(0.82 0.15 83);
+    --chart-3: oklch(0.66 0.2 23);
+    --chart-4: oklch(0.68 0.12 200);
+    --chart-5: oklch(0.55 0.1 285);
+    --sidebar: oklch(0.215 0.018 285);
+    --sidebar-foreground: oklch(0.97 0.008 285);
+    --sidebar-primary: oklch(0.68 0.17 287);
+    --sidebar-primary-foreground: oklch(0.17 0.02 285);
+    --sidebar-accent: oklch(0.32 0.04 285);
+    --sidebar-accent-foreground: oklch(0.97 0.008 285);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --sidebar-ring: oklch(0.68 0.17 287);
 }
 
 @layer base {
@@ -130,5 +147,10 @@
     }
   html {
     @apply font-sans;
+    }
+  h1, h2, h3 {
+    @apply font-heading;
+    font-feature-settings: "ss01";
+    letter-spacing: -0.01em;
     }
 }

@@ -15,6 +15,8 @@ import {
 
 import type { SharedProps, Membership } from "@/types"
 
+import { BrandMark, Wordmark } from "@/components/brand-mark"
+
 import {
   Sidebar,
   SidebarContent,
@@ -59,10 +61,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               : "flex items-center gap-2 px-2 py-1.5"
           }
         >
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground">
-            F
-          </div>
-          {!collapsed && <span className="font-semibold">Fielize</span>}
+          <BrandMark className="size-7" />
+          {!collapsed && <Wordmark />}
         </Link>
       </SidebarHeader>
       <SidebarContent>

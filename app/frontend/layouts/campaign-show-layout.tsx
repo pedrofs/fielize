@@ -1,9 +1,11 @@
 import { Link, router, usePage } from "@inertiajs/react"
-import { PencilIcon } from "lucide-react"
-import type { ReactNode } from "react"
+import { PencilIcon, PartyPopperIcon } from "lucide-react"
+import { useEffect, useState, type ReactNode } from "react"
+import { motion, useReducedMotion } from "motion/react"
 
 import { AppLayout } from "@/layouts/app-layout"
 import { Button } from "@/components/ui/button"
+import { Confetti } from "@/components/celebrate"
 import { cn } from "@/lib/utils"
 import type { CampaignChrome, RaffleSummary } from "@/types"
 
@@ -126,66 +128,96 @@ export function CampaignShowLayout({
 }
 
 function RafflePanel({ campaign }: { campaign: CampaignChrome }) {
-  if (campaign.rafflePanel == null) return null
   const panel = campaign.rafflePanel
+  const drawn = panel != null && panel.state !== "open"
+  const reduced = useReducedMotion()
+  const [celebrate, setCelebrate] = useState(false)
+
+  // Fire the loud celebration once, right after the draw — not on every tab switch.
+  useEffect(() => {
+    if (!drawn || typeof window === "undefined") return
+    const key = `fielize:raffle-celebrated:${campaign.id}`
+    if (window.sessionStorage.getItem(key)) return
+    setCelebrate(true)
+    window.sessionStorage.setItem(key, "1")
+  }, [campaign.id, drawn])
+
+  if (panel == null) return null
   const isCumulative = campaign.entryPolicy === "cumulative"
 
   return (
-    <section className="flex flex-col gap-3" data-testid="raffle-panel">
+    <section className="relative flex flex-col gap-3" data-testid="raffle-panel">
+      {celebrate && <Confetti count={28} />}
       <h2 className="text-lg font-semibold">Sorteio</h2>
       {panel.prizes.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nenhum prêmio configurado.</p>
-      ) : (
+      ) : panel.state === "open" ? (
         <div className="rounded-md border">
           <ul className="divide-y">
-            {panel.state === "open"
-              ? panel.prizes.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-4 p-4 text-sm"
-                    data-testid={`raffle-prize-${p.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{p.name}</span>
-                      {isCumulative && p.threshold != null && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {p.threshold} stamps
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      className="text-muted-foreground tabular-nums"
-                      data-testid={`raffle-pool-size-${p.id}`}
-                    >
-                      {isCumulative
-                        ? `${p.poolSize} elegíveis`
-                        : `${p.poolSize} entradas`}
+            {panel.prizes.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-4 p-4 text-sm"
+                data-testid={`raffle-prize-${p.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{p.name}</span>
+                  {isCumulative && p.threshold != null && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {p.threshold} stamps
                     </span>
-                  </li>
-                ))
-              : panel.prizes.map((p) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-4 p-4 text-sm"
-                    data-testid={`raffle-prize-${p.id}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-medium">{p.name}</span>
-                      {isCumulative && p.threshold != null && (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                          {p.threshold} stamps
-                        </span>
-                      )}
-                    </div>
-                    <RaffleWinnerCell
-                      campaignId={campaign.id}
-                      prizeId={p.id}
-                      raffleId={p.raffleId}
-                      raffle={p.raffle}
-                    />
-                  </li>
-                ))}
+                  )}
+                </div>
+                <span
+                  className="text-muted-foreground tabular-nums"
+                  data-testid={`raffle-pool-size-${p.id}`}
+                >
+                  {isCumulative ? `${p.poolSize} elegíveis` : `${p.poolSize} entradas`}
+                </span>
+              </li>
+            ))}
           </ul>
+        </div>
+      ) : (
+        <div className="rounded-md border">
+          <motion.ul
+            className="divide-y"
+            initial={reduced ? false : "hidden"}
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.12 } } }}
+          >
+            {panel.prizes.map((p) => (
+              <motion.li
+                key={p.id}
+                className="flex items-center justify-between gap-4 p-4 text-sm"
+                data-testid={`raffle-prize-${p.id}`}
+                variants={{
+                  hidden: { opacity: 0, y: 10 },
+                  show: {
+                    opacity: 1,
+                    y: 0,
+                    transition: { type: "spring", stiffness: 320, damping: 26 },
+                  },
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="font-medium">{p.name}</span>
+                  {isCumulative && p.threshold != null && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      {p.threshold} stamps
+                    </span>
+                  )}
+                </div>
+                <RaffleWinnerCell
+                  campaignId={campaign.id}
+                  prizeId={p.id}
+                  raffleId={p.raffleId}
+                  raffle={p.raffle}
+                  celebrate={celebrate}
+                />
+              </motion.li>
+            ))}
+          </motion.ul>
         </div>
       )}
     </section>
@@ -197,11 +229,13 @@ function RaffleWinnerCell({
   prizeId,
   raffleId,
   raffle,
+  celebrate = false,
 }: {
   campaignId: string
   prizeId: string
   raffleId: string | null
   raffle: RaffleSummary | null
+  celebrate?: boolean
 }) {
   if (raffle == null) {
     return (
@@ -240,6 +274,15 @@ function RaffleWinnerCell({
       className="flex flex-col items-end text-right"
       data-testid={`raffle-winner-${prizeId}`}
     >
+      <motion.span
+        className="mb-1 inline-flex items-center gap-1 rounded-full bg-celebration px-2 py-0.5 text-xs font-semibold text-celebration-foreground"
+        initial={celebrate ? { scale: 0.5, opacity: 0 } : false}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: "spring", stiffness: 500, damping: 16, delay: 0.15 }}
+      >
+        <PartyPopperIcon className="size-3" />
+        Vencedor
+      </motion.span>
       <span className="font-medium">{raffle.winner?.displayName}</span>
       <span className="text-xs text-muted-foreground tabular-nums">
         {raffle.winner?.phoneMasked} · {drawnAt}
