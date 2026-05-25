@@ -19,6 +19,12 @@ class LoyaltyCampaign < Campaign
     earned - spent
   end
 
+  # Read-only cumulative metrics (funnel, top_prize) for the active dashboard —
+  # the public entry point to the Metrics PORO collaborator (ADR-0006).
+  def metrics
+    @metrics ||= Metrics.new(self)
+  end
+
   def disable!(reset: false)
     transaction do
       update!(status: "ended")

@@ -24,6 +24,7 @@ import type {
   LoyaltyPrize,
   LoyaltyStandings,
   LoyaltyStandingRow,
+  LoyaltyMetrics,
 } from "@/types"
 
 type Props = {
@@ -34,6 +35,8 @@ type Props = {
   previewCard?: CardPresentation
   // Active only: the two read-only current-state Customer lists.
   standings?: LoyaltyStandings
+  // Active only: cumulative redemption funnel + most-redeemed Prize.
+  metrics?: LoyaltyMetrics
 }
 
 const STATUS_LABELS: Record<LoyaltyProgram["status"], string> = {
@@ -47,6 +50,7 @@ export default function LoyaltyProgramShow({
   prizes,
   previewCard,
   standings,
+  metrics,
 }: Props) {
   const [disableOpen, setDisableOpen] = useState(false)
   const [resetMode, setResetMode] = useState<"keep" | "reset">("keep")
@@ -143,6 +147,8 @@ export default function LoyaltyProgramShow({
       )}
 
       {isActive && standings && <Standings standings={standings} />}
+
+      {isActive && metrics && <Metrics metrics={metrics} />}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between">
@@ -425,6 +431,61 @@ function StandingsList({
         </li>
       ))}
     </ul>
+  )
+}
+
+// The cumulative redemption funnel (Inscritos → Carimbaram → Resgataram) over
+// the era, plus the most-redeemed Prize. Read-only (ADR-0006). The
+// Carimbaram→Resgataram gap is the "threshold too high?" diagnostic; bars are
+// sized relative to the widest stage (Inscritos) so drop-off reads at a glance.
+function Metrics({ metrics }: { metrics: LoyaltyMetrics }) {
+  const { funnel, topPrize } = metrics
+  const steps = [
+    { label: "Inscritos", value: funnel.enrolled },
+    { label: "Carimbaram", value: funnel.stamped },
+    { label: "Resgataram", value: funnel.redeemed },
+  ]
+  const max = funnel.enrolled
+
+  return (
+    <Card data-testid="loyalty-metrics">
+      <CardHeader>
+        <CardTitle>Resgates</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-6">
+        <ol className="flex flex-col gap-3" data-testid="loyalty-funnel">
+          {steps.map((step) => (
+            <li key={step.label} className="flex flex-col gap-1">
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="font-medium">{step.label}</span>
+                <span className="tabular-nums font-semibold">{step.value}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${max > 0 ? (step.value / max) * 100 : 0}%` }}
+                />
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div
+          className="rounded-lg border bg-muted/40 p-3"
+          data-testid="loyalty-top-prize"
+        >
+          {topPrize ? (
+            <p className="text-sm">
+              Prêmio mais resgatado: <strong>{topPrize.name}</strong>.
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Nenhum prêmio resgatado ainda.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

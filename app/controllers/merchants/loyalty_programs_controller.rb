@@ -18,9 +18,12 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
       prizes: @loyalty.prizes.ordered.map { |p| serialize_prize(p) }
     }
     # Lifecycle branch: draft renders the live preview Card; active renders the
-    # two current-state standings lists (later slices add metrics on top).
+    # two current-state standings lists plus the cumulative redemption metrics.
     props[:preview_card] = serialize_card(@loyalty.preview_card) if @loyalty.draft?
-    props[:standings] = serialize_standings(@loyalty) if @loyalty.active?
+    if @loyalty.active?
+      props[:standings] = serialize_standings(@loyalty)
+      props[:metrics] = serialize_metrics(@loyalty)
+    end
 
     render inertia: props
   end
@@ -88,6 +91,16 @@ class Merchants::LoyaltyProgramsController < Merchants::BaseController
       cheapest_threshold: loyalty.prizes.minimum(:threshold),
       redeemable: loyalty.redeemable.map { |row| serialize_standing(row) },
       near_reward: loyalty.near_reward(within: NEAR_WITHIN).map { |row| serialize_standing(row) }
+    }
+  end
+
+  # The active dashboard's cumulative redemption funnel and most-redeemed Prize
+  # over the current era. Read-only by design (ADR-0006).
+  def serialize_metrics(loyalty)
+    top = loyalty.metrics.top_prize
+    {
+      funnel: loyalty.metrics.funnel,
+      top_prize: top && { id: top.id, name: top.name }
     }
   end
 

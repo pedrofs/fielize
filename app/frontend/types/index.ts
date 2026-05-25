@@ -218,6 +218,20 @@ export type LoyaltyStandings = {
   nearReward: LoyaltyStandingRow[]
 }
 
+// Cumulative redemption funnel over the current era: distinct Customers who
+// enrolled, then stamped, then redeemed. Monotonic (enrolled ≥ stamped ≥
+// redeemed). The stamped→redeemed gap is the "threshold too high?" diagnostic.
+export type LoyaltyFunnel = {
+  enrolled: number
+  stamped: number
+  redeemed: number
+}
+
+export type LoyaltyMetrics = {
+  funnel: LoyaltyFunnel
+  topPrize: { id: string; name: string } | null
+}
+
 export type RedemptionPreviewPrize = {
   id: string
   name: string
