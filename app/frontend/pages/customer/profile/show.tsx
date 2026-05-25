@@ -1,33 +1,72 @@
-import { Link, useForm, usePage } from "@inertiajs/react"
-import { useEffect, useState, type FormEvent, type ReactNode } from "react"
+import { Form, usePage } from "@inertiajs/react"
+import { useEffect, useState, type ReactNode } from "react"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Button } from "@/components/ui/button"
-
-type Enrollment = {
-  id: string
-  campaignId: string
-  campaignName: string
-  url: string
-}
-
-type ProfileOrganization = {
-  id: string
-  name: string | null
-  slug: string | null
-  imageUrl: string | null
-  url: string
-  enrollments: Enrollment[]
-}
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 type Profile = {
   recognized: boolean
-  verified: boolean
-  organizations: ProfileOrganization[]
+  name?: string | null
+  phoneMasked?: string | null
+  verified?: boolean
 }
 
 type Props = {
   profile: Profile
+}
+
+function NameForm({ name }: { name: string | null | undefined }) {
+  return (
+    <Form
+      method="patch"
+      action="/me/perfil"
+      className="flex flex-col gap-2"
+      data-testid="profile-name-form"
+    >
+      {({ errors, processing, recentlySuccessful }) => (
+        <>
+          <Label htmlFor="profile-name">Nome</Label>
+          <Input
+            id="profile-name"
+            name="profile[name]"
+            defaultValue={name ?? ""}
+            data-testid="profile-name-input"
+          />
+          {errors.name && (
+            <span className="text-sm text-destructive" data-testid="profile-name-error">
+              {errors.name}
+            </span>
+          )}
+          <div className="flex items-center gap-3">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={processing}
+              data-testid="profile-name-save"
+            >
+              {processing ? "Salvando…" : "Salvar"}
+            </Button>
+            {recentlySuccessful && (
+              <span className="text-sm text-muted-foreground" data-testid="profile-name-saved">
+                Salvo!
+              </span>
+            )}
+          </div>
+        </>
+      )}
+    </Form>
+  )
+}
+
+function PhoneField({ phoneMasked }: { phoneMasked: string | null | undefined }) {
+  return (
+    <div className="flex flex-col gap-1" data-testid="profile-phone">
+      <span className="text-sm font-medium">WhatsApp</span>
+      <span className="text-sm text-muted-foreground">{phoneMasked ?? "—"}</span>
+    </div>
+  )
 }
 
 function VerifiedBanner() {
@@ -43,91 +82,60 @@ function VerifiedBanner() {
 }
 
 function ResendBanner() {
-  const { post, processing } = useForm({})
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    post("/me/verification_requests")
-  }
-
   return (
-    <form
-      onSubmit={submit}
+    <Form
+      method="post"
+      action="/me/verification_requests"
       className="flex flex-col gap-3 rounded-lg border bg-amber-50 px-4 py-3 text-sm text-amber-900"
     >
-      <span>
-        Seu WhatsApp ainda não foi confirmado. Toque para reenviar o link.
-      </span>
-      <Button
-        type="submit"
-        size="sm"
-        variant="outline"
-        disabled={processing}
-        data-testid="profile-verification-resend"
-      >
-        Reenviar confirmação
-      </Button>
-    </form>
+      {({ processing }) => (
+        <>
+          <span>
+            Seu WhatsApp ainda não foi confirmado. Toque para reenviar o link.
+          </span>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={processing}
+            data-testid="profile-verification-resend"
+          >
+            Reenviar confirmação
+          </Button>
+        </>
+      )}
+    </Form>
   )
 }
 
-function OrgEnrollmentList({ organization }: { organization: ProfileOrganization }) {
+function PrivacyLink() {
   return (
-    <section className="flex flex-col gap-2" data-testid="profile-org">
-      <header className="flex items-center gap-3">
-        {organization.imageUrl && (
-          <img
-            src={organization.imageUrl}
-            alt=""
-            className="size-10 rounded-full border bg-background object-cover"
-          />
-        )}
-        <Link
-          href={organization.url}
-          className="text-sm font-semibold underline-offset-2 hover:underline"
+    <a
+      href="/privacy"
+      target="_blank"
+      rel="noreferrer"
+      className="text-sm underline underline-offset-4 hover:text-foreground"
+      data-testid="profile-privacy-link"
+    >
+      Termos de privacidade (LGPD)
+    </a>
+  )
+}
+
+function ForgetMeForm() {
+  return (
+    <Form method="delete" action="/me/session" className="pt-4">
+      {({ processing }) => (
+        <button
+          type="submit"
+          disabled={processing}
+          className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
+          data-testid="profile-forget-me"
         >
-          {organization.name}
-        </Link>
-      </header>
-      <ul className="flex flex-col divide-y rounded-lg border bg-card">
-        {organization.enrollments.map((enrollment) => (
-          <li key={enrollment.id}>
-            <Link
-              href={enrollment.url}
-              className="flex items-center justify-between p-4 hover:bg-accent/30"
-              data-testid="profile-enrollment"
-            >
-              <span className="font-medium">{enrollment.campaignName}</span>
-              <span className="text-sm text-muted-foreground" aria-hidden>
-                →
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
-  )
-}
-
-function ForgetMeLink() {
-  const { delete: destroy, processing } = useForm({})
-
-  const submit = (e: FormEvent) => {
-    e.preventDefault()
-    destroy("/me/session")
-  }
-
-  return (
-    <form onSubmit={submit} className="pt-4">
-      <button
-        type="submit"
-        disabled={processing}
-        className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground disabled:opacity-50"
-        data-testid="profile-forget-me"
-      >
-        Esquecer este dispositivo
-      </button>
-    </form>
+          Esquecer este dispositivo
+        </button>
+      )}
+    </Form>
   )
 }
 
@@ -142,7 +150,7 @@ function Placeholder() {
       </div>
       <h1 className="text-xl font-semibold tracking-tight">Bem-vindo à Fielize</h1>
       <p className="max-w-xs text-sm text-muted-foreground">
-        Suas inscrições em campanhas vão aparecer aqui. Acesse a página de uma
+        Participe de uma campanha para criar seu perfil. Acesse a página de uma
         organização e toque em <span className="font-medium">Quero participar</span>{" "}
         para começar.
       </p>
@@ -175,7 +183,7 @@ function FlashToast({ message }: { message: string }) {
 export default function CustomerProfileShow({ profile }: Props) {
   const flash = usePage().flash
 
-  if (!profile.recognized || profile.organizations.length === 0) {
+  if (!profile.recognized) {
     return (
       <>
         {flash?.notice && <FlashToast message={flash.notice} />}
@@ -185,33 +193,23 @@ export default function CustomerProfileShow({ profile }: Props) {
   }
 
   return (
-    <article className="flex flex-col gap-6 py-6">
+    <article className="flex flex-col gap-6 py-6" data-testid="profile">
       {flash?.notice && <FlashToast message={flash.notice} />}
 
       <header className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Minhas inscrições
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Perfil</h1>
         <p className="text-sm text-muted-foreground">
-          Acompanhe suas campanhas em todas as organizações.
+          Seus dados nesta conta Fielize.
         </p>
       </header>
 
+      <NameForm name={profile.name} />
+      <PhoneField phoneMasked={profile.phoneMasked} />
+
       {profile.verified ? <VerifiedBanner /> : <ResendBanner />}
 
-      <div
-        className="flex flex-col gap-6"
-        data-testid="profile-enrollments"
-      >
-        {profile.organizations.map((organization) => (
-          <OrgEnrollmentList
-            key={organization.id}
-            organization={organization}
-          />
-        ))}
-      </div>
-
-      <ForgetMeLink />
+      <PrivacyLink />
+      <ForgetMeForm />
     </article>
   )
 }

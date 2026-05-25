@@ -3,12 +3,12 @@
 require "test_helper"
 
 class Customer::SessionsControllerTest < ActionDispatch::IntegrationTest
-  test "destroy clears the customer cookie and redirects to /me" do
+  test "destroy clears the customer cookie and redirects to the profile" do
     sign_in_via_enrollment
     assert cookies[Customer::Identifiable::COOKIE_KEY.to_s].present?
 
     delete "/me/session"
-    assert_redirected_to "/me"
+    assert_redirected_to "/me/perfil"
 
     assert cookies[Customer::Identifiable::COOKIE_KEY.to_s].blank?
   end
@@ -23,7 +23,7 @@ class Customer::SessionsControllerTest < ActionDispatch::IntegrationTest
 
   test "destroy is a no-op when no cookie is present" do
     delete "/me/session"
-    assert_redirected_to "/me"
+    assert_redirected_to "/me/perfil"
   end
 
   private

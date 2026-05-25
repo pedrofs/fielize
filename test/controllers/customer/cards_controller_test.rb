@@ -1,0 +1,33 @@
+# frozen_string_literal: true
+
+require "test_helper"
+
+class Customer::CardsControllerTest < ActionDispatch::IntegrationTest
+  test "index responds 200 for a visitor without a cookie" do
+    get "/me"
+    assert_response :success
+  end
+
+  test "index responds 200 for a recognized visitor with enrollments" do
+    sign_in_via_enrollment
+
+    get "/me"
+    assert_response :success
+  end
+
+  test "index responds 200 even when the cookie references a deleted Customer" do
+    sign_in_via_enrollment
+    Customer.find_by(phone: "+5553999990000")&.destroy
+
+    get "/me"
+    assert_response :success
+  end
+
+  private
+
+  def sign_in_via_enrollment
+    post customer_organization_campaign_enrollment_path(
+      organizations(:one).slug, campaigns(:pasaporte).slug
+    ), params: { enrollment: { name: "Cliente", phone: "(53) 99999-0000" } }
+  end
+end

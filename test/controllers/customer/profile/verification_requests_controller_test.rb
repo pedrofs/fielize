@@ -13,7 +13,7 @@ class Customer::Profile::VerificationRequestsControllerTest < ActionDispatch::In
     assert_enqueued_with(job: WhatsAppDeliveryJob, args: [ { customer_id: customer.id } ]) do
       post "/me/verification_requests"
     end
-    assert_redirected_to "/me"
+    assert_redirected_to "/me/perfil"
   end
 
   test "create is a no-op for an already-verified customer" do
@@ -24,14 +24,14 @@ class Customer::Profile::VerificationRequestsControllerTest < ActionDispatch::In
     assert_no_enqueued_jobs only: WhatsAppDeliveryJob do
       post "/me/verification_requests"
     end
-    assert_redirected_to "/me"
+    assert_redirected_to "/me/perfil"
   end
 
-  test "create redirects to /me when there is no cookie at all" do
+  test "create redirects to the profile when there is no cookie at all" do
     assert_no_enqueued_jobs only: WhatsAppDeliveryJob do
       post "/me/verification_requests"
     end
-    assert_redirected_to "/me"
+    assert_redirected_to "/me/perfil"
   end
 
   private

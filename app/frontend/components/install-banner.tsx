@@ -45,7 +45,7 @@ export function InstallBanner() {
 
   return (
     <div
-      className="fixed inset-x-0 bottom-3 z-40 mx-auto flex max-w-screen-sm items-start gap-3 rounded-lg border bg-card px-4 py-3 text-sm shadow-lg sm:bottom-4"
+      className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mx-auto flex max-w-screen-sm items-start gap-3 rounded-lg border bg-card px-4 py-3 text-sm shadow-lg"
       data-testid="ios-install-banner"
     >
       <div className="flex flex-1 flex-col gap-1">
