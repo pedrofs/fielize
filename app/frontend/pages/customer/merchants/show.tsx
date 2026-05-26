@@ -289,7 +289,32 @@ function UnidentifiedClaimForm({ merchantSlug }: { merchantSlug: string }) {
   )
 }
 
+// A gentle, polling-aware "live" indicator: a pulsing dot + label that tells
+// the customer the screen is actively waiting for the attendant to confirm.
+// The pulse is motion-safe so reduced-motion users get a static dot. The
+// status is announced once (aria-live polite) for screen readers.
+function PendingIndicator() {
+  return (
+    <p
+      className="flex items-center gap-2 text-sm font-medium text-warning"
+      data-testid="merchant-pending-indicator"
+      role="status"
+      aria-live="polite"
+    >
+      <span
+        className="size-2 rounded-full bg-warning motion-safe:animate-pulse"
+        aria-hidden
+      />
+      Aguardando confirmação…
+    </p>
+  )
+}
+
 function PendingCodeCard({ visit }: { visit: Visit }) {
+  // Spell the code out digit-by-digit for screen readers; the visible text
+  // stays grouped (123 456) but the accessible label reads "Código: 1 2 3 …".
+  const codeLabel = visit.code ? `Código: ${visit.code.split("").join(" ")}` : "Aguardando código"
+
   return (
     <section
       className="flex flex-col items-center gap-4 rounded-lg border bg-card p-6 text-center"
@@ -299,9 +324,11 @@ function PendingCodeCard({ visit }: { visit: Visit }) {
       <p
         className="font-mono text-5xl font-semibold tracking-[0.3em]"
         data-testid="merchant-pending-code-value"
+        aria-label={codeLabel}
       >
         {visit.code ? formatCode(visit.code) : "------"}
       </p>
+      <PendingIndicator />
       <ul className="flex w-full flex-col divide-y border-t pt-4 text-left text-sm">
         {visit.stamps.map((s) => (
           <li key={s.id} className="flex items-center justify-between gap-3 py-2">

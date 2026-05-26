@@ -32,6 +32,27 @@ class Customer::MerchantLandingTest < ApplicationSystemTestCase
     assert_no_selector "[data-testid='merchant-claim-cta']"
   end
 
+  test "the pending-code screen shows a live indicator and an accessible code label" do
+    merchant = merchants(:one)
+
+    # State 3 → identify + claim, landing on the pending code (state 6).
+    visit "/m/#{merchant.slug}"
+    fill_in "Nome", with: "Ana"
+    fill_in "WhatsApp", with: "(53) 91515-6767"
+    find("[data-testid='merchant-claim-cta']").click
+    assert_selector "[data-testid='merchant-pending-code']", wait: 5
+
+    # A live "aguardando confirmação" indicator is visible while polling.
+    assert_selector "[data-testid='merchant-pending-indicator']", text: /aguardando confirmação/i
+
+    # The 6-digit code carries a spaced-out accessible label for screen readers,
+    # so it's read digit-by-digit rather than as one large number.
+    customer = Customer.find_by!(phone: "+5553915156767")
+    code = Visit.find_by!(customer: customer, merchant: merchant).stamps.first.code
+    spaced = code.chars.join(" ")
+    assert_selector "[data-testid='merchant-pending-code-value'][aria-label='Código: #{spaced}']"
+  end
+
   test "state 5 surfaces the customer's progress at this merchant before the claim CTA" do
     merchant = merchants(:one)
 
