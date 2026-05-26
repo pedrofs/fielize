@@ -14,3 +14,15 @@ export const defaultIcon = L.icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 })
+
+// Enlarged variant for the merchant the customer has selected (from a card or a
+// previous marker tap), so the map visibly reflects the list selection.
+export const selectedIcon = L.icon({
+  iconUrl,
+  iconRetinaUrl,
+  shadowUrl,
+  iconSize: [33, 54],
+  iconAnchor: [16, 54],
+  popupAnchor: [1, -46],
+  shadowSize: [54, 54],
+})

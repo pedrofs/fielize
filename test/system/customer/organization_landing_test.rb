@@ -56,6 +56,7 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
     merchant = merchants(:one)
 
     visit "/o/#{organization.slug}"
+    open_merchant_map
 
     marker = find(".leaflet-marker-icon", match: :first)
     marker.click
@@ -81,6 +82,7 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
     merchant = merchants(:one)
 
     visit "/o/#{organization.slug}"
+    open_merchant_map
 
     assert_selector "[data-testid='merchants-map']"
     marker = find(".leaflet-marker-icon", match: :first)
@@ -189,6 +191,7 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
     loyalty = campaigns(:cartao_calzados)
 
     visit "/o/#{organization.slug}"
+    open_merchant_map
 
     marker = find(".leaflet-marker-icon", match: :first)
     marker.click
@@ -201,5 +204,91 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
       assert(texts.any? { |t| t.include?(org_campaign.name) })
       assert(texts.any? { |t| t.include?(loyalty.name) })
     end
+  end
+
+  test "merchant cards are rendered above the map" do
+    organization = organizations(:one)
+
+    visit "/o/#{organization.slug}"
+
+    assert_selector "[data-testid='merchant-card']"
+    assert_selector "[data-testid='map-toggle']"
+    body = page.body
+    assert(
+      body.index("merchant-card") < body.index("map-toggle"),
+      "expected the merchant cards to appear before the map toggle"
+    )
+  end
+
+  test "the map is collapsed by default and expands/collapses via the toggle" do
+    organization = organizations(:one)
+
+    visit "/o/#{organization.slug}"
+
+    assert_no_selector "[data-testid='merchants-map']"
+    assert_selector "[data-testid='map-toggle']", text: "Ver no mapa"
+
+    find("[data-testid='map-toggle']").click
+    assert_selector "[data-testid='merchants-map']"
+    assert_selector "[data-testid='map-toggle']", text: "Ocultar mapa"
+
+    find("[data-testid='map-toggle']").click
+    assert_no_selector "[data-testid='merchants-map']"
+  end
+
+  test "tapping a card's map-pin reveals the map and highlights that card" do
+    organization = organizations(:one)
+
+    visit "/o/#{organization.slug}"
+
+    assert_no_selector "[data-testid='merchants-map']"
+    find("[data-testid='merchant-locate']").click
+
+    assert_selector "[data-testid='merchants-map']"
+    assert_selector "[data-testid='merchant-row'][data-selected='true']"
+  end
+
+  test "tapping a marker highlights the corresponding merchant card" do
+    organization = organizations(:one)
+    merchant = merchants(:one)
+
+    visit "/o/#{organization.slug}"
+    open_merchant_map
+
+    find(".leaflet-marker-icon", match: :first).click
+
+    within "[data-testid='merchant-row'][data-selected='true']" do
+      assert_text merchant.name
+    end
+  end
+
+  test "with several mappable merchants each renders a marker and only the chosen card is highlighted" do
+    organization = organizations(:one)
+    organization.merchants.create!(
+      name: "Segunda Loja",
+      address: "Av. 20 de Setembro, 200, Jaguarão",
+      latitude: -32.5650,
+      longitude: -53.3800
+    )
+
+    visit "/o/#{organization.slug}"
+
+    assert_selector "[data-testid='merchant-row']", count: 2
+
+    all("[data-testid='merchant-locate']").last.click
+
+    assert_selector "[data-testid='merchants-map']"
+    assert_css ".leaflet-marker-icon", count: 2
+
+    selected = all("[data-testid='merchant-row'][data-selected='true']")
+    assert_equal 1, selected.size
+    selected.first.assert_text("Segunda Loja")
+  end
+
+  private
+
+  def open_merchant_map
+    find("[data-testid='map-toggle']").click
+    assert_selector "[data-testid='merchants-map']"
   end
 end

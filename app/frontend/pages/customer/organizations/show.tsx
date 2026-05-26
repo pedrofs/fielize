@@ -1,8 +1,8 @@
 import type { ReactNode } from "react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, usePage } from "@inertiajs/react"
-import { ClockIcon } from "lucide-react"
-import { MapContainer, Marker, TileLayer } from "react-leaflet"
+import { ChevronDownIcon, ClockIcon, MapIcon, MapPinIcon } from "lucide-react"
+import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -13,7 +13,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { defaultIcon } from "@/lib/leaflet-icon"
+import { defaultIcon, selectedIcon } from "@/lib/leaflet-icon"
+import { cn } from "@/lib/utils"
+
+type MappableMerchant = Merchant & { latitude: number; longitude: number }
 
 type Organization = {
   id: string
@@ -163,46 +166,76 @@ function progressLabel(progress: CampaignProgress): string {
 function MerchantCard({
   merchant,
   primaryColor,
+  mappable,
+  selected,
+  onLocate,
+  rowRef,
 }: {
   merchant: Merchant
   primaryColor: string | null
+  mappable: boolean
+  selected: boolean
+  onLocate: () => void
+  rowRef: (el: HTMLDivElement | null) => void
 }) {
   return (
-    <Link
-      href={`/m/${merchant.slug}`}
-      className="flex items-center gap-3 p-4 transition-colors hover:bg-accent/30"
-      data-testid="merchant-card"
+    <div
+      ref={rowRef}
+      data-testid="merchant-row"
+      data-selected={selected || undefined}
+      className={cn(
+        "flex items-center transition-colors",
+        selected && "bg-accent/40 ring-2 ring-inset ring-primary",
+      )}
     >
-      <Avatar size="lg" data-testid="merchant-monogram">
-        <AvatarFallback
-          className="font-semibold"
-          style={
-            primaryColor
-              ? {
-                  color: primaryColor,
-                  backgroundColor: `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
-                }
-              : undefined
-          }
-        >
-          {monogram(merchant.name)}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-medium">{merchant.name}</span>
-        {merchant.address && (
-          <span className="truncate text-sm text-muted-foreground">
-            {merchant.address}
+      <Link
+        href={`/m/${merchant.slug}`}
+        className="flex min-w-0 flex-1 items-center gap-3 p-4 transition-colors hover:bg-accent/30"
+        data-testid="merchant-card"
+      >
+        <Avatar size="lg" data-testid="merchant-monogram">
+          <AvatarFallback
+            className="font-semibold"
+            style={
+              primaryColor
+                ? {
+                    color: primaryColor,
+                    backgroundColor: `color-mix(in srgb, ${primaryColor} 15%, transparent)`,
+                  }
+                : undefined
+            }
+          >
+            {monogram(merchant.name)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium">{merchant.name}</span>
+          {merchant.address && (
+            <span className="truncate text-sm text-muted-foreground">
+              {merchant.address}
+            </span>
+          )}
+          <span
+            className="mt-1 inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+            data-testid="merchant-campaign-count"
+          >
+            {campaignCountLabel(merchant.campaigns.length)}
           </span>
-        )}
-        <span
-          className="mt-1 inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-          data-testid="merchant-campaign-count"
+        </div>
+      </Link>
+      {mappable && (
+        <button
+          type="button"
+          onClick={onLocate}
+          aria-label={`Ver ${merchant.name} no mapa`}
+          aria-pressed={selected}
+          data-testid="merchant-locate"
+          className="mr-2 flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         >
-          {campaignCountLabel(merchant.campaigns.length)}
-        </span>
-      </div>
-    </Link>
+          <MapPinIcon className="size-5" />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -224,15 +257,35 @@ function MapsLink({ merchant }: { merchant: Merchant }) {
   )
 }
 
+// Pans the map onto the selected merchant whenever the selection changes, so a
+// tap on a card (which may have opened the map) brings its marker into view.
+function PanToSelected({ merchant }: { merchant: MappableMerchant | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (merchant) {
+      map.setView(
+        [merchant.latitude, merchant.longitude],
+        Math.max(map.getZoom(), 15),
+        { animate: true },
+      )
+    }
+  }, [merchant, map])
+  return null
+}
+
 function MerchantsMap({
   merchants,
   center,
-  onSelect,
+  selectedId,
+  onSelectMarker,
 }: {
-  merchants: Merchant[]
+  merchants: MappableMerchant[]
   center: { latitude: number; longitude: number }
-  onSelect: (merchant: Merchant) => void
+  selectedId: string | null
+  onSelectMarker: (merchant: MappableMerchant) => void
 }) {
+  const selected = merchants.find((m) => m.id === selectedId) ?? null
+
   return (
     <div
       className="h-64 w-full overflow-hidden rounded-lg border"
@@ -248,14 +301,19 @@ function MerchantsMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {merchants.map((merchant) => (
-          <Marker
-            key={merchant.id}
-            position={[merchant.latitude!, merchant.longitude!]}
-            icon={defaultIcon}
-            eventHandlers={{ click: () => onSelect(merchant) }}
-          />
-        ))}
+        {merchants.map((merchant) => {
+          const isSelected = merchant.id === selectedId
+          return (
+            <Marker
+              key={merchant.id}
+              position={[merchant.latitude, merchant.longitude]}
+              icon={isSelected ? selectedIcon : defaultIcon}
+              zIndexOffset={isSelected ? 1000 : 0}
+              eventHandlers={{ click: () => onSelectMarker(merchant) }}
+            />
+          )
+        })}
+        <PanToSelected merchant={selected} />
       </MapContainer>
     </div>
   )
@@ -334,7 +392,10 @@ export default function CustomerOrganizationShow({
   mapCenter,
   emptyState,
 }: Props) {
-  const [selected, setSelected] = useState<Merchant | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [mapOpen, setMapOpen] = useState(false)
+  const [sheetMerchant, setSheetMerchant] = useState<Merchant | null>(null)
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const { props } = usePage()
   const enrolledIds = useMemo(
     () => new Set(props.currentCustomer?.enrolledCampaignIds ?? []),
@@ -344,11 +405,29 @@ export default function CustomerOrganizationShow({
   const mappableMerchants = useMemo(
     () =>
       merchants.filter(
-        (m): m is Merchant & { latitude: number; longitude: number } =>
-          m.latitude != null && m.longitude != null,
+        (m): m is MappableMerchant => m.latitude != null && m.longitude != null,
       ),
     [merchants],
   )
+
+  // From a card: highlight the merchant and reveal its marker on the map.
+  function locateOnMap(merchant: Merchant) {
+    setSelectedId(merchant.id)
+    setMapOpen(true)
+  }
+
+  // From a marker: highlight the matching card, scroll it into view, and open
+  // its detail sheet — so the two representations stay in sync.
+  function selectFromMarker(merchant: MappableMerchant) {
+    setSelectedId(merchant.id)
+    setSheetMerchant(merchant)
+    requestAnimationFrame(() => {
+      rowRefs.current[merchant.id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      })
+    })
+  }
 
   if (emptyState) {
     return (
@@ -396,23 +475,6 @@ export default function CustomerOrganizationShow({
         )}
       </section>
 
-      <section className="flex flex-col gap-3 pb-6">
-        {mappableMerchants.length > 0 && mapCenter ? (
-          <MerchantsMap
-            merchants={mappableMerchants}
-            center={mapCenter}
-            onSelect={setSelected}
-          />
-        ) : (
-          <div
-            className="flex h-32 items-center justify-center rounded-lg border bg-muted/40 text-sm text-muted-foreground"
-            data-testid="map-placeholder"
-          >
-            Localizações em breve
-          </div>
-        )}
-      </section>
-
       <section className="flex flex-col gap-3">
         <h2 className="text-base font-semibold">Lojistas participantes</h2>
 
@@ -421,39 +483,88 @@ export default function CustomerOrganizationShow({
             Nenhum lojista cadastrado ainda.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y rounded-lg border bg-card">
-            {merchants.map((merchant) => (
-              <li key={merchant.id}>
-                <MerchantCard
-                  merchant={merchant}
-                  primaryColor={organization.primaryColor}
-                />
-              </li>
-            ))}
-          </ul>
+          <>
+            {/* Cards lead the section — the primary way to reach a store. */}
+            <ul className="flex flex-col divide-y rounded-lg border bg-card">
+              {merchants.map((merchant) => (
+                <li key={merchant.id}>
+                  <MerchantCard
+                    merchant={merchant}
+                    primaryColor={organization.primaryColor}
+                    mappable={
+                      merchant.latitude != null && merchant.longitude != null
+                    }
+                    selected={selectedId === merchant.id}
+                    onLocate={() => locateOnMap(merchant)}
+                    rowRef={(el) => {
+                      rowRefs.current[merchant.id] = el
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+
+            {/* The map is demoted to a collapsible preview below the cards,
+                kept in sync with the list via the shared selection. */}
+            {mappableMerchants.length > 0 && mapCenter ? (
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMapOpen((open) => !open)}
+                  aria-expanded={mapOpen}
+                  data-testid="map-toggle"
+                  className="flex w-fit items-center gap-1.5 text-sm font-medium text-primary"
+                >
+                  <MapIcon className="size-4" />
+                  {mapOpen ? "Ocultar mapa" : "Ver no mapa"}
+                  <ChevronDownIcon
+                    className={cn(
+                      "size-4 transition-transform",
+                      mapOpen && "rotate-180",
+                    )}
+                  />
+                </button>
+                {mapOpen && (
+                  <MerchantsMap
+                    merchants={mappableMerchants}
+                    center={mapCenter}
+                    selectedId={selectedId}
+                    onSelectMarker={selectFromMarker}
+                  />
+                )}
+              </div>
+            ) : (
+              <div
+                className="flex h-32 items-center justify-center rounded-lg border bg-muted/40 text-sm text-muted-foreground"
+                data-testid="map-placeholder"
+              >
+                Localizações em breve
+              </div>
+            )}
+          </>
         )}
       </section>
 
       <Sheet
-        open={selected !== null}
-        onOpenChange={(open) => !open && setSelected(null)}
+        open={sheetMerchant !== null}
+        onOpenChange={(open) => !open && setSheetMerchant(null)}
       >
         <SheetContent side="bottom" data-testid="merchant-sheet">
-          {selected && (
+          {sheetMerchant && (
             <>
               <SheetHeader>
-                <SheetTitle>{selected.name}</SheetTitle>
-                {selected.address && (
+                <SheetTitle>{sheetMerchant.name}</SheetTitle>
+                {sheetMerchant.address && (
                   <SheetDescription asChild>
                     <span>
-                      <MapsLink merchant={selected} />
+                      <MapsLink merchant={sheetMerchant} />
                     </span>
                   </SheetDescription>
                 )}
               </SheetHeader>
               <div className="flex flex-col gap-2 p-4 pt-0">
                 <Link
-                  href={`/m/${selected.slug}`}
+                  href={`/m/${sheetMerchant.slug}`}
                   className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline"
                   data-testid="sheet-merchant-link"
                 >
@@ -462,13 +573,13 @@ export default function CustomerOrganizationShow({
                 <h3 className="text-sm font-semibold">
                   Campanhas ativas neste lojista
                 </h3>
-                {selected.campaigns.length === 0 ? (
+                {sheetMerchant.campaigns.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Nenhuma campanha ativa neste lojista.
                   </p>
                 ) : (
                   <ul className="flex flex-col gap-2">
-                    {selected.campaigns.map((campaign) => (
+                    {sheetMerchant.campaigns.map((campaign) => (
                       <li key={campaign.id}>
                         <Link
                           href={campaign.url}
