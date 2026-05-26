@@ -7,8 +7,10 @@ import {
   TrophyIcon,
   type LucideIcon,
 } from "lucide-react"
+import { motion, useReducedMotion } from "motion/react"
 import { type ReactNode } from "react"
 
+import { Pressable } from "@/components/celebrate"
 import { cn } from "@/lib/utils"
 
 export type Tier = {
@@ -78,6 +80,68 @@ const MAX_DOTS = 12
 // The simple-policy entry strip grows one dot per Raffle Entry; beyond the cap
 // it collapses the tail into a `+N` overflow indicator.
 const MAX_ENTRY_DOTS = 12
+
+// The single "how far along am I" number per card kind, used to detect a
+// freshly earned stamp by comparing against the last count this device saw.
+export function progressCount(progress: Progress): number {
+  switch (progress.kind) {
+    case "loyalty":
+      return progress.balance
+    case "cumulative":
+      return progress.merchantsStamped
+    case "simple":
+      return progress.entries
+  }
+}
+
+// A single punch-card dot. Freshly earned dots pop in (scale spring), staggered
+// by their position in the fresh run; everything else — and reduced motion —
+// renders the dot statically.
+function Dot({
+  filled,
+  fresh = false,
+  freshIndex = 0,
+}: {
+  filled: boolean
+  fresh?: boolean
+  freshIndex?: number
+}) {
+  const reduced = useReducedMotion()
+  const className = cn(
+    "size-4 rounded-full border",
+    filled ? "border-primary bg-primary" : "border-border bg-muted",
+  )
+
+  if (!fresh || reduced) return <span className={className} />
+
+  return (
+    <motion.span
+      className={className}
+      initial={{ scale: 0 }}
+      animate={{ scale: [0, 1.35, 1] }}
+      transition={{ duration: 0.45, delay: freshIndex * 0.12, ease: "easeOut" }}
+    />
+  )
+}
+
+// The "+N" reward accent shown next to a card's dots when N stamps were earned
+// since this device last opened the wallet. Pops in under motion; static under
+// reduced motion.
+function FreshAccent({ amount }: { amount: number }) {
+  const reduced = useReducedMotion()
+
+  return (
+    <motion.span
+      data-testid="fresh-stamp-accent"
+      className="inline-flex items-center rounded-full bg-reward/15 px-1.5 py-0.5 text-xs font-bold text-reward"
+      initial={reduced ? false : { scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={reduced ? { duration: 0 } : { type: "spring", stiffness: 600, damping: 18, delay: amount * 0.12 }}
+    >
+      +{amount}
+    </motion.span>
+  )
+}
 
 export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("pt-BR", {
@@ -161,56 +225,66 @@ function Dots({
   filled,
   total,
   unit = "carimbos",
+  justFilled = 0,
 }: {
   filled: number
   total: number
   unit?: string
+  justFilled?: number
 }) {
+  // The fresh run is the trailing filled dots earned since the last open.
+  const fresh = Math.min(justFilled, filled)
+  const freshStart = filled - fresh
+
   if (total > MAX_DOTS) {
     return (
-      <p className="text-sm font-medium tabular-nums">
-        {filled} <span className="text-muted-foreground">de {total} {unit}</span>
+      <p className="flex items-center gap-2 text-sm font-medium tabular-nums">
+        <span>
+          {filled} <span className="text-muted-foreground">de {total} {unit}</span>
+        </span>
+        {fresh > 0 && <FreshAccent amount={fresh} />}
       </p>
     )
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5" aria-hidden>
-      {Array.from({ length: total }).map((_, index) => (
-        <span
-          key={index}
-          className={cn(
-            "size-4 rounded-full border",
-            index < filled
-              ? "border-primary bg-primary"
-              : "border-border bg-muted",
-          )}
-        />
-      ))}
+    <div className="flex flex-wrap items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5" aria-hidden>
+        {Array.from({ length: total }).map((_, index) => (
+          <Dot
+            key={index}
+            filled={index < filled}
+            fresh={index >= freshStart && index < filled}
+            freshIndex={index - freshStart}
+          />
+        ))}
+      </div>
+      {fresh > 0 && <FreshAccent amount={fresh} />}
     </div>
   )
 }
 
 // One dot per Raffle Entry, growing as the customer accumulates entries, with a
 // `+N` overflow once past the cap so a big tally stays a single tidy row.
-function EntryDots({ entries }: { entries: number }) {
+function EntryDots({ entries, justFilled = 0 }: { entries: number; justFilled?: number }) {
   const visible = Math.min(entries, MAX_ENTRY_DOTS)
   const overflow = entries - visible
+  const fresh = Math.min(justFilled, visible)
+  const freshStart = visible - fresh
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {Array.from({ length: visible }).map((_, index) => (
-        <span
-          key={index}
-          className="size-4 rounded-full border border-primary bg-primary"
-          aria-hidden
-        />
-      ))}
+      <div className="flex flex-wrap items-center gap-1.5" aria-hidden>
+        {Array.from({ length: visible }).map((_, index) => (
+          <Dot key={index} filled fresh={index >= freshStart} freshIndex={index - freshStart} />
+        ))}
+      </div>
       {overflow > 0 && (
         <span className="text-sm font-medium tabular-nums text-muted-foreground">
           +{overflow}
         </span>
       )}
+      {fresh > 0 && <FreshAccent amount={fresh} />}
     </div>
   )
 }
@@ -241,14 +315,20 @@ function TierMarkers({ tiers }: { tiers: Tier[] }) {
   )
 }
 
-function LoyaltyBody({ progress }: { progress: LoyaltyProgress }) {
+function LoyaltyBody({
+  progress,
+  justEarned = 0,
+}: {
+  progress: LoyaltyProgress
+  justEarned?: number
+}) {
   const { balance, nextThreshold, tiers } = progress
 
   return (
     <>
       {nextThreshold != null ? (
         <div className="flex flex-col gap-2">
-          <Dots filled={balance} total={nextThreshold} />
+          <Dots filled={balance} total={nextThreshold} justFilled={justEarned} />
           <p className="text-xs text-muted-foreground">
             {balance} de {nextThreshold} carimbos para o próximo prêmio
           </p>
@@ -267,9 +347,11 @@ function LoyaltyBody({ progress }: { progress: LoyaltyProgress }) {
 function CumulativeBody({
   progress,
   awaiting,
+  justEarned = 0,
 }: {
   progress: CumulativeProgress
   awaiting: boolean
+  justEarned?: number
 }) {
   const { merchantsStamped, nextThreshold, tiers } = progress
   const entered = tiers.filter((tier) => tier.reached).length
@@ -278,7 +360,7 @@ function CumulativeBody({
     <div className="flex flex-col gap-2">
       {nextThreshold != null ? (
         <>
-          <Dots filled={merchantsStamped} total={nextThreshold} unit="lojas" />
+          <Dots filled={merchantsStamped} total={nextThreshold} unit="lojas" justFilled={justEarned} />
           <p className="text-xs text-muted-foreground">
             {merchantsStamped} de {nextThreshold} lojas para entrar no próximo
             sorteio
@@ -311,15 +393,17 @@ function CumulativeBody({
 function SimpleBody({
   progress,
   awaiting,
+  justEarned = 0,
 }: {
   progress: SimpleProgress
   awaiting: boolean
+  justEarned?: number
 }) {
   const { entries, drawAt } = progress
 
   return (
     <div className="flex flex-col gap-2">
-      <EntryDots entries={entries} />
+      <EntryDots entries={entries} justFilled={justEarned} />
       <p className="text-xs text-muted-foreground">
         {entries === 1 ? "1 chance" : `${entries} chances`} no sorteio
       </p>
@@ -351,7 +435,15 @@ function WonBody({ organization }: { organization: CardOrganization }) {
 }
 
 // The state/progress body shared by the Wallet summary and the detail screen.
-export function CardBody({ card }: { card: CardPresentation }) {
+// `justEarned` (Wallet only) is the count of stamps earned since this device
+// last opened the wallet; it drives the dot-fill + "+N" accent.
+export function CardBody({
+  card,
+  justEarned = 0,
+}: {
+  card: CardPresentation
+  justEarned?: number
+}) {
   if (card.state === "won") return <WonBody organization={card.organization} />
   if (card.state === "lost") {
     return (
@@ -368,11 +460,11 @@ export function CardBody({ card }: { card: CardPresentation }) {
 
   switch (card.progress.kind) {
     case "loyalty":
-      return <LoyaltyBody progress={card.progress} />
+      return <LoyaltyBody progress={card.progress} justEarned={justEarned} />
     case "cumulative":
-      return <CumulativeBody progress={card.progress} awaiting={awaiting} />
+      return <CumulativeBody progress={card.progress} awaiting={awaiting} justEarned={justEarned} />
     case "simple":
-      return <SimpleBody progress={card.progress} awaiting={awaiting} />
+      return <SimpleBody progress={card.progress} awaiting={awaiting} justEarned={justEarned} />
   }
 }
 
@@ -556,23 +648,32 @@ export function HeroProgress({ card }: { card: CardPresentation }) {
 }
 
 // The tappable Wallet summary: links to the card detail at `/me/cartoes/:id`.
-export function WalletCard({ card }: { card: WalletCardData }) {
+// Wrapped in Pressable so it shares the reward motion language's press feedback.
+export function WalletCard({
+  card,
+  justEarned,
+}: {
+  card: WalletCardData
+  justEarned?: number
+}) {
   return (
-    <Link
-      href={card.url}
-      className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/30"
-      data-testid="wallet-card"
-      data-state={card.state}
-    >
-      <header className="flex items-start justify-between gap-3">
-        <div className="flex flex-col gap-1">
-          <OrgLabel organization={card.organization} />
-          <h3 className="font-semibold leading-tight">{card.campaignName}</h3>
-        </div>
-        <StatusBadge state={card.state} />
-      </header>
+    <Pressable>
+      <Link
+        href={card.url}
+        className="flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors hover:bg-accent/30"
+        data-testid="wallet-card"
+        data-state={card.state}
+      >
+        <header className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-1">
+            <OrgLabel organization={card.organization} />
+            <h3 className="font-semibold leading-tight">{card.campaignName}</h3>
+          </div>
+          <StatusBadge state={card.state} />
+        </header>
 
-      <CardBody card={card} />
-    </Link>
+        <CardBody card={card} justEarned={justEarned} />
+      </Link>
+    </Pressable>
   )
 }

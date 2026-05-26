@@ -10,12 +10,13 @@ import {
   type ReactNode,
 } from "react"
 
-import { Confetti, StampThunk } from "@/components/celebrate"
+import { Confetti, Pressable, StampThunk } from "@/components/celebrate"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  progressCount,
   WalletCard,
   type CardState,
   type WalletCardData,
@@ -42,14 +43,68 @@ type Props = {
   wallet?: Wallet
 }
 
+// Entrance choreography: the list reveals its cards one after another with a
+// small spring; under reduced motion the cards just appear (handled in CardList).
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.06 } },
+}
+const itemVariants = {
+  hidden: { opacity: 0, y: 8 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { type: "spring", stiffness: 500, damping: 32 },
+  },
+}
+
+// The card column for a section. Staggers its cards in on mount; with reduced
+// motion it renders a plain column so everything appears instantly.
+function CardList({
+  cards,
+  justEarned,
+}: {
+  cards: Card[]
+  justEarned: Map<string, number>
+}) {
+  const reduced = useReducedMotion()
+
+  if (reduced) {
+    return (
+      <div className="flex flex-col gap-3">
+        {cards.map((card) => (
+          <WalletCard key={card.id} card={card} justEarned={justEarned.get(card.id)} />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <motion.div
+      className="flex flex-col gap-3"
+      variants={listVariants}
+      initial="hidden"
+      animate="show"
+    >
+      {cards.map((card) => (
+        <motion.div key={card.id} variants={itemVariants}>
+          <WalletCard card={card} justEarned={justEarned.get(card.id)} />
+        </motion.div>
+      ))}
+    </motion.div>
+  )
+}
+
 function Section({
   title,
   cards,
   testId,
+  justEarned,
 }: {
   title: string
   cards: Card[]
   testId: string
+  justEarned: Map<string, number>
 }) {
   if (cards.length === 0) return null
 
@@ -58,11 +113,7 @@ function Section({
       <h2 className="text-sm font-semibold tracking-tight text-muted-foreground">
         {title}
       </h2>
-      <div className="flex flex-col gap-3">
-        {cards.map((card) => (
-          <WalletCard key={card.id} card={card} />
-        ))}
-      </div>
+      <CardList cards={cards} justEarned={justEarned} />
     </section>
   )
 }
@@ -71,10 +122,12 @@ function CollapsibleSection({
   title,
   cards,
   testId,
+  justEarned,
 }: {
   title: string
   cards: Card[]
   testId: string
+  justEarned: Map<string, number>
 }) {
   const [open, setOpen] = useState(false)
 
@@ -97,13 +150,7 @@ function CollapsibleSection({
           <ChevronDownIcon className="size-4" />
         )}
       </button>
-      {open && (
-        <div className="flex flex-col gap-3">
-          {cards.map((card) => (
-            <WalletCard key={card.id} card={card} />
-          ))}
-        </div>
-      )}
+      {open && <CardList cards={cards} justEarned={justEarned} />}
     </section>
   )
 }
@@ -152,15 +199,17 @@ function RestoreForm() {
           </p>
         )}
       </div>
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full"
-        disabled={processing}
-        data-testid="wallet-restore-cta"
-      >
-        Entrar com WhatsApp
-      </Button>
+      <Pressable className="w-full">
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full"
+          disabled={processing}
+          data-testid="wallet-restore-cta"
+        >
+          Entrar com WhatsApp
+        </Button>
+      </Pressable>
     </form>
   )
 }
@@ -222,7 +271,13 @@ function WalletSkeleton() {
   )
 }
 
-function WalletContent({ wallet }: { wallet: Wallet }) {
+function WalletContent({
+  wallet,
+  justEarned,
+}: {
+  wallet: Wallet
+  justEarned: Map<string, number>
+}) {
   const { paraResgatar, ativas, encerradas } = wallet.sections
   const isEmpty =
     paraResgatar.length === 0 &&
@@ -247,12 +302,19 @@ function WalletContent({ wallet }: { wallet: Wallet }) {
           title="Para resgatar"
           cards={paraResgatar}
           testId="wallet-section-para-resgatar"
+          justEarned={justEarned}
         />
-        <Section title="Ativas" cards={ativas} testId="wallet-section-ativas" />
+        <Section
+          title="Ativas"
+          cards={ativas}
+          testId="wallet-section-ativas"
+          justEarned={justEarned}
+        />
         <CollapsibleSection
           title="Encerradas"
           cards={encerradas}
           testId="wallet-section-encerradas"
+          justEarned={justEarned}
         />
       </div>
     </article>
@@ -318,6 +380,60 @@ function useNewlyWonCelebration(wallet: Wallet | undefined) {
   return { celebrating, dismiss }
 }
 
+const CARD_PROGRESS_KEY = "fielize:card-progress"
+
+function readCardProgress(): Record<string, number> {
+  try {
+    const raw = window.localStorage.getItem(CARD_PROGRESS_KEY)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writeCardProgress(counts: Record<string, number>): void {
+  try {
+    window.localStorage.setItem(CARD_PROGRESS_KEY, JSON.stringify(counts))
+  } catch {
+    // Private mode / quota: degrade to no persistence (re-baseline next load).
+  }
+}
+
+// Detects stamps earned since this device last opened the wallet by comparing
+// each card's current progress count against the persisted baseline, returning
+// a card-id → delta map that drives the dot-fill "+N" accent. The first sight
+// of a card only establishes its baseline (no accent), mirroring the celebration
+// hook above: localStorage stands in for the in-session edge the wallet — which
+// renders straight from the DB on every load — never observes.
+function useFreshStamps(wallet: Wallet | undefined): Map<string, number> {
+  const [deltas, setDeltas] = useState<Map<string, number>>(new Map())
+  const computed = useRef(false)
+
+  useEffect(() => {
+    if (!wallet || computed.current) return
+    computed.current = true
+
+    const { paraResgatar, ativas, encerradas } = wallet.sections
+    const cards = [...paraResgatar, ...ativas, ...encerradas]
+    const stored = readCardProgress()
+    const next: Record<string, number> = { ...stored }
+    const fresh = new Map<string, number>()
+
+    for (const card of cards) {
+      const count = progressCount(card.progress)
+      const prev = stored[card.id]
+      if (prev != null && count > prev) fresh.set(card.id, count - prev)
+      next[card.id] = count
+    }
+
+    writeCardProgress(next)
+    if (fresh.size > 0) setDeltas(fresh)
+  }, [wallet])
+
+  return deltas
+}
+
 // Transient full-screen burst that auto-dismisses to reveal the wallet beneath.
 // Degrades to an instant, static state under prefers-reduced-motion.
 function CelebrationOverlay({ onDone }: { onDone: () => void }) {
@@ -348,11 +464,12 @@ function CelebrationOverlay({ onDone }: { onDone: () => void }) {
 
 export default function CustomerCardsIndex({ wallet }: Props) {
   const { celebrating, dismiss } = useNewlyWonCelebration(wallet)
+  const justEarned = useFreshStamps(wallet)
 
   return (
     <>
       <Deferred data="wallet" fallback={<WalletSkeleton />}>
-        <WalletContent wallet={wallet!} />
+        <WalletContent wallet={wallet!} justEarned={justEarned} />
       </Deferred>
       <AnimatePresence>
         {celebrating && <CelebrationOverlay key="celebration" onDone={dismiss} />}

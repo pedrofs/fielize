@@ -2,6 +2,7 @@ import { Deferred, Link } from "@inertiajs/react"
 import { ArrowLeftIcon, ArrowRightIcon, StoreIcon } from "lucide-react"
 import { type ReactNode } from "react"
 
+import { Pressable } from "@/components/celebrate"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   HeroProgress,
@@ -112,14 +113,16 @@ function CardContent({ card }: { card: CardDetail }) {
       </section>
 
       {card.merchantUrl && (
-        <Link
-          href={card.merchantUrl}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          data-testid="go-to-store"
-        >
-          <StoreIcon className="size-4" />
-          Ir para a loja
-        </Link>
+        <Pressable>
+          <Link
+            href={card.merchantUrl}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            data-testid="go-to-store"
+          >
+            <StoreIcon className="size-4" />
+            Ir para a loja
+          </Link>
+        </Pressable>
       )}
 
       {card.prizes.length > 0 && (
