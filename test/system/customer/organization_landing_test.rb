@@ -285,10 +285,93 @@ class Customer::OrganizationLandingTest < ApplicationSystemTestCase
     selected.first.assert_text("Segunda Loja")
   end
 
+  test "offers a nearest-first sort control that defaults to alphabetical and does not auto-request location" do
+    organization = organizations(:one)
+    organization.merchants.create!(
+      name: "Zíper Calçados",
+      address: "Centro, Pelotas",
+      latitude: -31.7654, longitude: -52.3376
+    )
+
+    visit "/o/#{organization.slug}"
+
+    assert_selector "[data-testid='sort-control']"
+    assert_selector "[data-testid='sort-alpha'][aria-pressed='true']"
+    # Nothing prompts for location on load, so no distance labels yet.
+    assert_no_selector "[data-testid='merchant-distance']"
+    names = all("[data-testid='merchant-card']").map(&:text)
+    assert names.first.include?("Calzados Ricardo"), "expected alphabetical order by default"
+  end
+
+  test "sorts merchants nearest-first with distance labels when location is granted" do
+    organization = organizations(:one)
+    # A second, alphabetically-last merchant near the customer; the fixture
+    # merchant (Calzados Ricardo) is ~150 km away. So nearest-first flips the
+    # alphabetical order, proving the sort actually ran.
+    organization.merchants.create!(
+      name: "Zíper Calçados",
+      address: "Centro, Pelotas",
+      latitude: -31.7654, longitude: -52.3376
+    )
+
+    visit "/o/#{organization.slug}"
+    stub_geolocation(latitude: -31.7654, longitude: -52.3376)
+
+    find("[data-testid='sort-nearest']").click
+
+    # Wait for the sort mode to settle before reading DOM order.
+    assert_selector "[data-testid='sort-nearest'][aria-pressed='true']"
+    assert_selector "[data-testid='merchant-distance']", minimum: 1
+    names = all("[data-testid='merchant-card']").map(&:text)
+    assert names.first.include?("Zíper Calçados"), "expected the nearest merchant first"
+    assert names.last.include?("Calzados Ricardo"), "expected the far merchant last"
+  end
+
+  test "keeps alphabetical order with a non-blocking message when location is denied" do
+    organization = organizations(:one)
+    organization.merchants.create!(
+      name: "Zíper Calçados",
+      address: "Centro, Pelotas",
+      latitude: -31.7654, longitude: -52.3376
+    )
+
+    visit "/o/#{organization.slug}"
+    deny_geolocation
+
+    find("[data-testid='sort-nearest']").click
+
+    # On denial the error surfaces and the toggle stays on A–Z; gate on both
+    # before reading order so the read happens after state settles.
+    assert_selector "[data-testid='geo-error']"
+    assert_selector "[data-testid='sort-alpha'][aria-pressed='true']"
+    assert_no_selector "[data-testid='merchant-distance']"
+    names = all("[data-testid='merchant-card']").map(&:text)
+    assert names.first.include?("Calzados Ricardo"), "expected alphabetical fallback"
+  end
+
   private
 
   def open_merchant_map
     find("[data-testid='map-toggle']").click
     assert_selector "[data-testid='merchants-map']"
+  end
+
+  # Replaces the browser geolocation call with a deterministic success so the
+  # nearest-first sort is reproducible (no real device location in CI).
+  def stub_geolocation(latitude:, longitude:)
+    page.execute_script(<<~JS)
+      navigator.geolocation.getCurrentPosition = function (success) {
+        success({ coords: { latitude: #{latitude}, longitude: #{longitude}, accuracy: 1 } })
+      }
+    JS
+  end
+
+  # Simulates the customer denying the permission prompt (error code 1).
+  def deny_geolocation
+    page.execute_script(<<~JS)
+      navigator.geolocation.getCurrentPosition = function (_success, error) {
+        error({ code: 1, message: "User denied Geolocation" })
+      }
+    JS
   end
 end

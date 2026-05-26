@@ -1,11 +1,18 @@
 import type { ReactNode } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Link, usePage } from "@inertiajs/react"
-import { ChevronDownIcon, ClockIcon, MapIcon, MapPinIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ClockIcon,
+  MapIcon,
+  MapPinIcon,
+  NavigationIcon,
+} from "lucide-react"
 import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet"
 
 import { CustomerLayout } from "@/layouts/customer-layout"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { formatDistanceKm, haversineKm } from "@/lib/distance"
 import {
   Sheet,
   SheetContent,
@@ -168,6 +175,7 @@ function MerchantCard({
   primaryColor,
   mappable,
   selected,
+  distanceKm,
   onLocate,
   rowRef,
 }: {
@@ -175,6 +183,7 @@ function MerchantCard({
   primaryColor: string | null
   mappable: boolean
   selected: boolean
+  distanceKm: number | null
   onLocate: () => void
   rowRef: (el: HTMLDivElement | null) => void
 }) {
@@ -215,12 +224,23 @@ function MerchantCard({
               {merchant.address}
             </span>
           )}
-          <span
-            className="mt-1 inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-            data-testid="merchant-campaign-count"
-          >
-            {campaignCountLabel(merchant.campaigns.length)}
-          </span>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span
+              className="inline-flex w-fit rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+              data-testid="merchant-campaign-count"
+            >
+              {campaignCountLabel(merchant.campaigns.length)}
+            </span>
+            {distanceKm != null && (
+              <span
+                className="inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                data-testid="merchant-distance"
+              >
+                <NavigationIcon className="size-3" />
+                {`a ${formatDistanceKm(distanceKm)}`}
+              </span>
+            )}
+          </div>
         </div>
       </Link>
       {mappable && (
@@ -385,6 +405,75 @@ function CampaignCardItem({
   )
 }
 
+type SortMode = "alpha" | "nearest"
+type GeoStatus = "idle" | "locating" | "ready" | "error"
+
+// Segmented A–Z / nearest toggle. Location is requested only when the customer
+// taps "Mais próximos" (never on load), so the permission prompt stays an
+// explicit, opt-in action rather than an intrusive page-entry interruption.
+function SortControl({
+  mode,
+  status,
+  onAlpha,
+  onNearest,
+}: {
+  mode: SortMode
+  status: GeoStatus
+  onAlpha: () => void
+  onNearest: () => void
+}) {
+  const locating = status === "locating"
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div
+        role="group"
+        aria-label="Ordenar lojistas"
+        data-testid="sort-control"
+        className="inline-flex rounded-full border bg-card p-0.5 text-xs font-medium"
+      >
+        <button
+          type="button"
+          onClick={onAlpha}
+          aria-pressed={mode === "alpha"}
+          data-testid="sort-alpha"
+          className={cn(
+            "rounded-full px-2.5 py-1 transition-colors",
+            mode === "alpha"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          A–Z
+        </button>
+        <button
+          type="button"
+          onClick={onNearest}
+          aria-pressed={mode === "nearest"}
+          disabled={locating}
+          data-testid="sort-nearest"
+          className={cn(
+            "inline-flex items-center gap-1 rounded-full px-2.5 py-1 transition-colors disabled:opacity-60",
+            mode === "nearest"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <NavigationIcon className="size-3" />
+          {locating ? "Localizando…" : "Mais próximos"}
+        </button>
+      </div>
+      {status === "error" && (
+        <span
+          className="text-xs text-muted-foreground"
+          data-testid="geo-error"
+        >
+          Não foi possível obter sua localização.
+        </span>
+      )}
+    </div>
+  )
+}
+
 export default function CustomerOrganizationShow({
   organization,
   merchants,
@@ -395,6 +484,9 @@ export default function CustomerOrganizationShow({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [mapOpen, setMapOpen] = useState(false)
   const [sheetMerchant, setSheetMerchant] = useState<Merchant | null>(null)
+  const [sortMode, setSortMode] = useState<SortMode>("alpha")
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle")
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null)
   const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const { props } = usePage()
   const enrolledIds = useMemo(
@@ -409,6 +501,63 @@ export default function CustomerOrganizationShow({
       ),
     [merchants],
   )
+
+  // Distance (km) from the customer to each merchant with coordinates. Empty
+  // until the customer grants location; merchants without coordinates are
+  // simply absent from the map.
+  const distanceById = useMemo(() => {
+    if (!origin) return {} as Record<string, number>
+    const out: Record<string, number> = {}
+    for (const m of merchants) {
+      if (m.latitude != null && m.longitude != null) {
+        out[m.id] = haversineKm(origin, { lat: m.latitude, lng: m.longitude })
+      }
+    }
+    return out
+  }, [merchants, origin])
+
+  // Nearest-first only once we have a fix; otherwise the server's alphabetical
+  // order is preserved untouched. Merchants without coordinates sink to the
+  // bottom, keeping their relative (name) order.
+  const sortedMerchants = useMemo(() => {
+    if (sortMode !== "nearest" || !origin) return merchants
+    return [...merchants].sort((a, b) => {
+      const da = distanceById[a.id]
+      const db = distanceById[b.id]
+      if (da == null && db == null) return 0
+      if (da == null) return 1
+      if (db == null) return -1
+      return da - db
+    })
+  }, [merchants, sortMode, origin, distanceById])
+
+  function sortAlphabetically() {
+    setSortMode("alpha")
+  }
+
+  // Reuse a previous fix if we have one; otherwise prompt for location and only
+  // switch to nearest-first on success. Denial/unavailability leaves the list
+  // alphabetical and surfaces a quiet inline message.
+  function sortByNearest() {
+    if (origin) {
+      setSortMode("nearest")
+      return
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoStatus("error")
+      return
+    }
+    setGeoStatus("locating")
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setGeoStatus("ready")
+        setSortMode("nearest")
+      },
+      () => setGeoStatus("error"),
+      { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
+    )
+  }
 
   // From a card: highlight the merchant and reveal its marker on the map.
   function locateOnMap(merchant: Merchant) {
@@ -476,7 +625,19 @@ export default function CustomerOrganizationShow({
       </section>
 
       <section className="flex flex-col gap-3">
-        <h2 className="text-base font-semibold">Lojistas participantes</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">Lojistas participantes</h2>
+          {/* Distance sort is only meaningful for multi-merchant orgs with
+              coordinates on the map. */}
+          {mappableMerchants.length > 1 && (
+            <SortControl
+              mode={sortMode}
+              status={geoStatus}
+              onAlpha={sortAlphabetically}
+              onNearest={sortByNearest}
+            />
+          )}
+        </div>
 
         {merchants.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -486,7 +647,7 @@ export default function CustomerOrganizationShow({
           <>
             {/* Cards lead the section — the primary way to reach a store. */}
             <ul className="flex flex-col divide-y rounded-lg border bg-card">
-              {merchants.map((merchant) => (
+              {sortedMerchants.map((merchant) => (
                 <li key={merchant.id}>
                   <MerchantCard
                     merchant={merchant}
@@ -495,6 +656,11 @@ export default function CustomerOrganizationShow({
                       merchant.latitude != null && merchant.longitude != null
                     }
                     selected={selectedId === merchant.id}
+                    distanceKm={
+                      sortMode === "nearest"
+                        ? (distanceById[merchant.id] ?? null)
+                        : null
+                    }
                     onLocate={() => locateOnMap(merchant)}
                     rowRef={(el) => {
                       rowRefs.current[merchant.id] = el
