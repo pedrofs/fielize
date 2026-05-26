@@ -1,5 +1,5 @@
 import { useState, type ReactNode, type FormEvent } from "react"
-import { Link, router, useForm } from "@inertiajs/react"
+import { Link, router } from "@inertiajs/react"
 import { CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { AppLayout } from "@/layouts/app-layout"
@@ -40,12 +40,6 @@ type Props = {
   metrics?: LoyaltyMetrics
 }
 
-const STATUS_LABELS: Record<LoyaltyProgram["status"], string> = {
-  draft: "Rascunho",
-  active: "Ativo",
-  ended: "Desativado",
-}
-
 export default function LoyaltyProgramShow({
   loyaltyProgram,
   prizes,
@@ -79,34 +73,33 @@ export default function LoyaltyProgramShow({
   const isEnded = loyaltyProgram.status === "ended"
 
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <div className="flex flex-col gap-1">
-            <CardTitle>Programa</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Status: <strong>{STATUS_LABELS[loyaltyProgram.status]}</strong>
-            </p>
-          </div>
-          {isDraft && (
-            <Button onClick={enable} disabled={prizes.length === 0}>
-              Ativar programa
-            </Button>
-          )}
-          {isActive && (
-            <Button variant="outline" onClick={() => setDisableOpen(true)}>
-              Desativar…
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {isEnded && (
-            <p className="text-sm text-muted-foreground">
-              Programa desativado. Para reativar, crie um novo programa.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+    <div className="flex w-full max-w-6xl flex-col gap-6">
+      {/* Status + primary lifecycle action — a slim bar, not a card. The
+          dashboard's job leads below; the program's on/off state is chrome. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            Programa
+          </span>
+          <StatusPill status={loyaltyProgram.status} />
+        </div>
+        {isDraft && (
+          <Button onClick={enable} disabled={prizes.length === 0}>
+            Ativar programa
+          </Button>
+        )}
+        {isActive && (
+          <Button variant="outline" size="sm" onClick={() => setDisableOpen(true)}>
+            Desativar…
+          </Button>
+        )}
+      </div>
+
+      {isEnded && (
+        <p className="text-sm text-muted-foreground">
+          Programa desativado. Para reativar, crie um novo programa.
+        </p>
+      )}
 
       {isDraft && previewCard && (
         <Card>
@@ -147,65 +140,28 @@ export default function LoyaltyProgramShow({
         </Card>
       )}
 
-      {isActive && standings && <Standings standings={standings} />}
+      {/* Active dashboard. Headline pulse spans full width; below it a
+          workspace splits into the actionable lists (primary) and the
+          analytics + prize config (rail). */}
+      {isActive && metrics && <ActivityStrip recent={metrics.recent} />}
 
-      {isActive && metrics && <Metrics metrics={metrics} />}
-
-      {isActive && metrics && <RecentActivity recent={metrics.recent} />}
-
-      <Card>
-        <CardHeader className="flex-row items-center justify-between">
-          <CardTitle>Prêmios</CardTitle>
-          {!isEnded && (
-            <Button asChild size="sm">
-              <Link href="/merchants/loyalty_program/prizes/new">
-                <PlusIcon data-icon="inline-start" />
-                Adicionar prêmio
-              </Link>
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
-          {prizes.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum prêmio ainda.</p>
-          ) : (
-            <ul className="divide-y">
-              {prizes.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-2 py-2"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{p.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {p.threshold} visita{p.threshold === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  {!isEnded && (
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" asChild>
-                        <Link href={`/merchants/loyalty_program/prizes/${p.id}/edit`}>
-                          <PencilIcon />
-                          <span className="sr-only">Editar</span>
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removePrize(p)}
-                        className="text-destructive hover:text-destructive"
-                      >
-                        <Trash2Icon />
-                        <span className="sr-only">Excluir</span>
-                      </Button>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {isActive ? (
+        <div className="grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
+          <div className="flex flex-col gap-6">
+            {standings && <Standings standings={standings} />}
+          </div>
+          <div className="flex flex-col gap-6">
+            {metrics && <Metrics metrics={metrics} />}
+            <PrizesCard
+              prizes={prizes}
+              isEnded={isEnded}
+              onRemove={removePrize}
+            />
+          </div>
+        </div>
+      ) : (
+        <PrizesCard prizes={prizes} isEnded={isEnded} onRemove={removePrize} />
+      )}
 
       <Dialog open={disableOpen} onOpenChange={setDisableOpen}>
         <DialogContent>
@@ -258,6 +214,110 @@ export default function LoyaltyProgramShow({
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+const STATUS_PILL: Record<
+  LoyaltyProgram["status"],
+  { label: string; surface: string; dot: string }
+> = {
+  draft: {
+    label: "Rascunho",
+    surface: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
+  active: {
+    label: "Ativo",
+    surface: "bg-success/10 text-success",
+    dot: "bg-success",
+  },
+  ended: {
+    label: "Desativado",
+    surface: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground",
+  },
+}
+
+function StatusPill({ status }: { status: LoyaltyProgram["status"] }) {
+  const cfg = STATUS_PILL[status]
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        cfg.surface,
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", cfg.dot)} aria-hidden />
+      {cfg.label}
+    </span>
+  )
+}
+
+// The prize roster + add/edit/remove. Lives in the active dashboard's rail and
+// full-width in draft/ended states. Read-only once the program has ended.
+function PrizesCard({
+  prizes,
+  isEnded,
+  onRemove,
+}: {
+  prizes: LoyaltyPrize[]
+  isEnded: boolean
+  onRemove: (prize: LoyaltyPrize) => void
+}) {
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between">
+        <CardTitle>Prêmios</CardTitle>
+        {!isEnded && (
+          <Button asChild size="sm">
+            <Link href="/merchants/loyalty_program/prizes/new">
+              <PlusIcon data-icon="inline-start" />
+              Adicionar prêmio
+            </Link>
+          </Button>
+        )}
+      </CardHeader>
+      <CardContent>
+        {prizes.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum prêmio ainda.</p>
+        ) : (
+          <ul className="divide-y">
+            {prizes.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-2 py-2"
+              >
+                <div className="flex flex-col">
+                  <span className="font-medium">{p.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {p.threshold} visita{p.threshold === 1 ? "" : "s"}
+                  </span>
+                </div>
+                {!isEnded && (
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" asChild>
+                      <Link href={`/merchants/loyalty_program/prizes/${p.id}/edit`}>
+                        <PencilIcon />
+                        <span className="sr-only">Editar</span>
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onRemove(p)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2Icon />
+                      <span className="sr-only">Excluir</span>
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -492,22 +552,32 @@ function Metrics({ metrics }: { metrics: LoyaltyMetrics }) {
   )
 }
 
-// The program's recent pulse over a rolling 7/15/30-day window (default 30). All
-// three windows are precomputed server-side, so the toggle is pure client-side
-// state — no reload (PRD #51, ADR-0006: read-only). Surfaces window-active
-// Customers split into novos vs. voltando, plus Stamps and Redemptions in the
-// window. Read-only — no nudge action.
+// The headline pulse over a rolling 7/15/30-day window (default 30). All three
+// windows are precomputed server-side, so the toggle is pure client-side state
+// — no reload (PRD #51, ADR-0006: read-only). Rendered full-width above the
+// workspace as a hairline-divided KPI bar: window-active Customers split into
+// novos vs. voltando, plus Stamps and Redemptions in the window.
 const RECENT_WINDOWS = ["7", "15", "30"] as const
 type RecentWindowKey = (typeof RECENT_WINDOWS)[number]
 
-function RecentActivity({ recent }: { recent: LoyaltyRecent }) {
+function ActivityStrip({ recent }: { recent: LoyaltyRecent }) {
   const [windowKey, setWindowKey] = useState<RecentWindowKey>("30")
   const w = recent[windowKey]
 
+  const stats = [
+    { label: "Clientes ativos", value: w.active },
+    { label: "Novos", value: w.new },
+    { label: "Voltando", value: w.returning },
+    { label: "Carimbos", value: w.stamps },
+    { label: "Resgates", value: w.redemptions },
+  ]
+
   return (
-    <Card data-testid="loyalty-recent">
-      <CardHeader className="flex-row items-center justify-between gap-2">
-        <CardTitle>Atividade recente</CardTitle>
+    <section className="flex flex-col gap-3" data-testid="loyalty-recent">
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-muted-foreground">
+          Atividade recente
+        </h2>
         <div
           role="group"
           aria-label="Período"
@@ -531,31 +601,28 @@ function RecentActivity({ recent }: { recent: LoyaltyRecent }) {
             </button>
           ))}
         </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Stat label="Clientes ativos" value={w.active} />
-          <Stat label="Novos" value={w.new} />
-          <Stat label="Voltando" value={w.returning} />
-          <Stat label="Carimbos" value={w.stamps} />
-          <Stat label="Resgates" value={w.redemptions} />
-        </div>
-        {w.active === 0 && (
-          <p className="text-sm text-muted-foreground">
-            Nenhuma atividade nos últimos {windowKey} dias.
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+      </div>
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex flex-col gap-0.5 rounded-lg border bg-muted/40 p-3">
-      <span className="text-2xl font-semibold tabular-nums">{value}</span>
-      <span className="text-xs text-muted-foreground">{label}</span>
-    </div>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-3 lg:grid-cols-5">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="flex flex-col gap-0.5 bg-card p-4"
+          >
+            <span className="text-2xl font-semibold tabular-nums">
+              {stat.value}
+            </span>
+            <span className="text-xs text-muted-foreground">{stat.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {w.active === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Nenhuma atividade nos últimos {windowKey} dias.
+        </p>
+      )}
+    </section>
   )
 }
 
