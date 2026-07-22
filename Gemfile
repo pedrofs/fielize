@@ -26,7 +26,7 @@ gem "geocoder"
 gem "rqrcode"
 
 # Pagination for server-side paginated tables.
-gem "pagy", "~> 43.5"
+gem "pagy", "~> 43.6"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
